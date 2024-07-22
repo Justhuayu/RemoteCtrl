@@ -4,11 +4,16 @@
 #include "pch.h"
 #include "framework.h"
 #include "RemoteCtrl.h"
+#include "ServerSocket.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+#pragma comment ( linker, "/subsystem:windows  /entry:WinMainCRTStartup")
+#pragma comment ( linker, "/subsystem:windows  /entry:mainCRTStartup")
+#pragma comment ( linker, "/subsystem: console /entry: mainCRTStartup")
+#pragma comment ( linker, "subsystem: console  /entry:WinMainCRTStartup")
 
 // 唯一的应用程序对象
 
@@ -34,6 +39,13 @@ int main()
         else
         {
             // TODO: 在此处为应用程序的行为编写代码。
+            //套接字初始化
+            CServerSocket* server = CServerSocket::getInstance();
+            if (!server->acceptClient()) return false;
+            while (CServerSocket::getInstance()) {
+                server->dealRecv();
+                server->dealSend();
+            }
         }
     }
     else
