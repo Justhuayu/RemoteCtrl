@@ -3,7 +3,53 @@
 #include "pch.h"
 #include "framework.h"
 
-class CPacket;
+class CPacket {
+public:
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
+	CPacket& operator=(CPacket& p) {
+		//防止自赋值
+		if (this != &p) {
+			sHead = p.sHead;
+			nLength = p.nLength;
+			sCmd = p.sCmd;
+			strData = p.strData;
+			sSum = p.sSum;
+		}
+		return *this;
+	}
+	CPacket& operator=(CPacket&& p) noexcept {
+		if (this != &p) {
+			// 移动资源
+			sHead = std::move(p.sHead);
+			nLength = std::move(p.nLength);
+			sCmd = std::move(p.sCmd);
+			strData = std::move(p.strData);
+			sSum = std::move(p.sSum);
+
+			// 清理源对象
+			p.sHead = 0;
+			p.nLength = 0;
+			p.sCmd = 0;
+			p.strData.clear();
+			p.sSum = 0;
+		}
+
+		return *this;
+	}
+	CPacket(CPacket& p) {
+		(*this) = p;
+	}
+
+	CPacket(const BYTE* pData, size_t& nSize);
+	~CPacket() = default;
+public:
+	WORD sHead;//包头 2字节 0xFEFF
+	DWORD nLength;//长度 4字节 命令 + 数据 + 校验和
+	WORD sCmd;//控制命令 2字节
+	std::string strData;//包数据
+	WORD sSum;//校验和 2字节，使用sum的方式
+};
+
 //单例模式
 class CServerSocket
 {
@@ -78,49 +124,3 @@ private:
 	CPacket m_packet;
 };
 
-class CPacket{
-public:
-	CPacket():sHead(0),nLength(0),sCmd(0),sSum(0){}
-	CPacket& operator=(CPacket &p){
-		//防止自赋值
-		if (this != &p) {
-			sHead = p.sHead;
-			nLength = p.nLength;
-			sCmd = p.sCmd;
-			strData = p.strData;
-			sSum = p.sSum;
-		}	
-		return *this;
-	}
-	CPacket& operator=(CPacket&& p) noexcept {
-		if (this != &p) {
-			// 移动资源
-			sHead = std::move(p.sHead);
-			nLength = std::move(p.nLength);
-			sCmd = std::move(p.sCmd);
-			strData = std::move(p.strData);
-			sSum = std::move(p.sSum);
-
-			// 清理源对象
-			p.sHead = 0;
-			p.nLength = 0;
-			p.sCmd = 0;
-			p.strData.clear();
-			p.sSum = 0;
-		}
-
-		return *this;
-	}
-	CPacket(CPacket& p) {
-		(*this) = p;
-	}
-
-	CPacket(const BYTE* pData, size_t& nSize);
-	~CPacket();
-public:
-	WORD sHead;//包头 2字节 0xFEFF
-	DWORD nLength;//长度 4字节 命令 + 数据 + 校验和
-	WORD sCmd;//控制命令 2字节
-	std::string strData;//包数据
-	WORD sSum;//校验和 2字节，使用sum的方式
-};
