@@ -1,11 +1,14 @@
 #include "pch.h"
 #include "ServerSocket.h"
 
-#define PORT 9527
+#define PORT 9527 //服务端socket端口号
+#define BUFFER_SIZE 4096 //recv buffer大小
 
+//静态变量定义
 CServerSocket* CServerSocket::m_instance = nullptr;
 CServerSocket::CServerHelp CServerSocket::m_help;
 
+//初始化socket连接
 BOOL CServerSocket::initSockEnv() {
 	//初始化socket环境
 	WSADATA data;
@@ -24,6 +27,7 @@ BOOL CServerSocket::initSockEnv() {
 	return true;
 }
 
+//创建新客户端连接
 bool CServerSocket::acceptClient() {
 	if (!m_instance) return false;
 	if (m_sock == INVALID_SOCKET) return false;
@@ -34,20 +38,84 @@ bool CServerSocket::acceptClient() {
 	return true;
 }
 
-bool CServerSocket::dealRecv() {
-	if (!m_instance) return false;
-	if (m_client_sock == INVALID_SOCKET) return false;
-	char buffer[1024] = { 0 };
-	int ret = recv(m_client_sock, buffer, sizeof(buffer), 0);
-	if (ret <= 0) {
-		MessageBox(NULL, _T("接受数据错误"), _T("错误！"), MB_OK | MB_ICONERROR);
-		return false;
+//处理接收
+int CServerSocket::dealRecv() {
+	if (!m_instance) return -1;
+	if (m_client_sock == INVALID_SOCKET) return -1;
+	//定义缓冲区
+	char* buffer = new char[BUFFER_SIZE];
+	memset(buffer, 0, BUFFER_SIZE);
+	size_t index = 0;
+	while (1) {
+		size_t ret = recv(m_client_sock,buffer+index,BUFFER_SIZE - index,0);
+		if (ret < 0) return -1;
+		else if (ret == 0) return 0;//断开连接
+		//可能多次 recv，因此必须是 +=
+		index += ret;
+		ret = index;
+		m_packet = CPacket((BYTE*)buffer, ret);
+		//包不完整，循环重复读取
+		if (index == 0) continue;
+		//读取一个包，缓冲区消息删除
+		//memmove 移动数据，内存重合解决方法：不重合从前往后移动，重合时从后往前移动（i=n;dest[i - 1] = src[i - 1];i--）
+		memmove(buffer, buffer + ret,BUFFER_SIZE - ret);
+		index -= ret;
+		return m_packet.sCmd;
 	}
 	return true;
 }
 
-bool CServerSocket::dealSend() {
-	if (!m_instance) return false;
-	if (m_client_sock == INVALID_SOCKET) return false;
+//处理发送
+int CServerSocket::dealSend() {
+	if (!m_instance) return -1;
+	if (m_client_sock == INVALID_SOCKET) return -1;
 	return send(m_client_sock, "123", 3, 0) > 0;
+}
+
+//根据缓冲区和长度，初始化包
+CPacket::CPacket(const BYTE* pData, size_t& nSize) {
+	//根据输入的buffer和长度，构建包
+	//包不完整
+	if (nSize < 2 + 4 + 2 + 2) return;
+	size_t i = 0;
+	for (; i < nSize; i++) {
+		if (0xFEFF == *(WORD*)(pData + i)) {
+			//找到包头
+			sHead = *(WORD*)(pData + i);
+			i += 2;
+			break;
+		}
+	}
+	//包不完整
+	if (i + 4 + 2 + 2 > nSize) {
+		//返回读取0个字节
+		nSize = 0;
+		return;
+	}
+	nLength = *(DWORD*)(pData + i); i += 4;
+	//包不完整
+	if (i + nLength > nSize) {
+		nSize = 0;
+		return;
+	}
+	sCmd = *(WORD*)(pData + i); i += 2;
+	strData.resize(nLength - 2 - 2);
+	//读数据，如果有
+	if (nLength > 4) {
+		memcpy((void*)strData.c_str(), pData + i, nLength - 2 - 2);
+		i += nLength - 2 - 2;
+	}
+	//校验和
+	sSum = *(WORD*)(pData + i);
+	WORD tmp_sum = 0;
+	for (size_t j = 0; j < strData.size(); j++) {
+		tmp_sum += BYTE(strData[j]) && 0xFF;
+	}
+	//包错误
+	if (tmp_sum != sSum) {
+		nSize = 0;
+		return;
+	}
+	//nSize表示实际处理到了pData的哪个位置
+	nSize = i;
 }
