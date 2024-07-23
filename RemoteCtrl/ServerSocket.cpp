@@ -62,7 +62,7 @@ int CServerSocket::dealRecv() {
 		index -= ret;
 		return m_packet.sCmd;
 	}
-	return true;
+	return 0;
 }
 
 //处理发送
@@ -73,37 +73,16 @@ int CServerSocket::dealSend(const char* pData,int nSize) {
 	return send(m_client_sock, pData, nSize, 0) > 0;
 }
 
-//求包长度(头 + 长度 + 命令 + 数据 + 校验和)
-size_t CPacket::size() {
-	return 6 + nLength;
+//获取文件路径
+bool CServerSocket::getFilePath(std::string& strPath) {
+	//TODO:文件处理枚举
+	if (this->m_packet.sCmd != 2) return false;
+	strPath = m_packet.strData;
+	return true;
 }
 
-//获取连续的数据地址
-const char* CPacket::data() {
-	strOut.resize(this->size());
-	BYTE* pData = (BYTE*)strOut.c_str();
-	*(WORD*)pData = sHead; pData += 2;
-	*(DWORD*)pData = nLength; pData += 4;
-	*(WORD*)pData = sCmd; pData += 2;
-	memcpy(pData, strData.c_str(), strData.size());
-	pData += strData.size();
-	*(WORD*)pData = sSum;
-	return strOut.c_str();
-}
 
-//打印包内容
-void CPacket::showPacket(BYTE* pData, size_t nSize) {
-	std::string res = "";
-	for (int i = 0; i < nSize; i++) {
-		char buf[8] = "";
-		if (i > 0 && i % 16 == 0) res += "\n";
-		snprintf(buf, sizeof(buf), "%02X ", pData[i] & 0xFF);
-		res += buf;
-	}
-	res += "\n";
-	OutputDebugStringA(res.c_str());
-}
-
+//-----------------------------------------------------------------------------------------------------------
 //根据缓冲区和长度，初始化包
 CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 	//根据输入的buffer和长度，构建包
@@ -155,7 +134,7 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 //数据打包
 CPacket::CPacket(WORD sCmd, BYTE* pData, size_t nSize) {
 	sHead = 0XFEFF;
-	nLength = 2+2 + nSize;
+	nLength = 2 + 2 + nSize;
 	this->sCmd = sCmd;
 	strData.resize(nSize);
 	memcpy((void*)strData.c_str(), pData, nSize);
@@ -163,4 +142,35 @@ CPacket::CPacket(WORD sCmd, BYTE* pData, size_t nSize) {
 	for (int i = 0; i < strData.size(); i++) {
 		sSum += BYTE(strData[i]) & 0xFF;
 	}
+}
+
+//求包长度(头 + 长度 + 命令 + 数据 + 校验和)
+size_t CPacket::size() {
+	return 6 + nLength;
+}
+
+//获取连续的数据地址
+const char* CPacket::data() {
+	strOut.resize(this->size());
+	BYTE* pData = (BYTE*)strOut.c_str();
+	*(WORD*)pData = sHead; pData += 2;
+	*(DWORD*)pData = nLength; pData += 4;
+	*(WORD*)pData = sCmd; pData += 2;
+	memcpy(pData, strData.c_str(), strData.size());
+	pData += strData.size();
+	*(WORD*)pData = sSum;
+	return strOut.c_str();
+}
+
+//打印包内容
+void CPacket::showPacket(BYTE* pData, size_t nSize) {
+	std::string res = "";
+	for (int i = 0; i < nSize; i++) {
+		char buf[8] = "";
+		if (i > 0 && i % 16 == 0) res += "\n";
+		snprintf(buf, sizeof(buf), "%02X ", pData[i] & 0xFF);
+		res += buf;
+	}
+	res += "\n";
+	OutputDebugStringA(res.c_str());
 }

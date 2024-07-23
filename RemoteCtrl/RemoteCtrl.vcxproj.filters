@@ -41,13 +41,13 @@
     <ClCompile Include="pch.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="RemoteCtrl.cpp">
-      <Filter>头文件</Filter>
-    </ClCompile>
     <ClCompile Include="FileInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ServerSocket.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteCtrl.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

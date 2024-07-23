@@ -57,6 +57,10 @@ int main()
                     fInfo.getDiskDriveInfo();
                     break;
                 }
+                case 2:
+                    //获取文件目录信息
+                    fInfo.getDirectoryInfo();
+                    break;
                 default:
                     break;
                 }
