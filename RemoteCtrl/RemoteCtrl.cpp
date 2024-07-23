@@ -3,9 +3,11 @@
 
 #include "pch.h"
 #include "framework.h"
+#include <direct.h>
+
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
-#include <direct.h>
+#include "FileInfo.h"
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -21,32 +23,6 @@ CWinApp theApp;
 
 using namespace std;
 
-void showPacket(BYTE* pData,size_t nSize) {
-    std::string res = "";
-    for (int i = 0; i < nSize; i++) {
-        char buf[8] = "";
-        if (i > 0 && i % 16 == 0) res += "\n";
-        snprintf(buf, sizeof(buf), "%02X ", pData[i] & 0xFF);
-        res += buf;
-    }
-    res += "\n";
-    OutputDebugStringA(res.c_str());
-}
-//获取磁盘分区信息
-void getDiskDriveInfo() {
-    std::string result = "";
-    for (int i = 1; i <= 26; i++) {
-        //_chdrive 1--A,2--B,...
-        if (_chdrive(i) == 0) {
-            if (!result.empty()) result += ',';
-            result += 'A' + i - 1;
-        }
-    }
-    //打包分区信息
-    CPacket packet(1, (BYTE*)result.c_str(), result.size());
-    showPacket((BYTE*)packet.data(), packet.size());
-    CServerSocket::getInstance()->dealSend(packet.data(),packet.size());
-}
 
 int main()
 {
@@ -73,11 +49,12 @@ int main()
                 server->dealRecv();
                 //处理文件
                 WORD sCmd = 1;
+                CFileInfo fInfo;
                 switch (sCmd) {
                 case 1:
                 {
                     //获取磁盘分区信息
-                    getDiskDriveInfo();
+                    fInfo.getDiskDriveInfo();
                     break;
                 }
                 default:

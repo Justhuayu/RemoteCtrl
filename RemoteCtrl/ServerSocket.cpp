@@ -91,6 +91,19 @@ const char* CPacket::data() {
 	return strOut.c_str();
 }
 
+//打印包内容
+void CPacket::showPacket(BYTE* pData, size_t nSize) {
+	std::string res = "";
+	for (int i = 0; i < nSize; i++) {
+		char buf[8] = "";
+		if (i > 0 && i % 16 == 0) res += "\n";
+		snprintf(buf, sizeof(buf), "%02X ", pData[i] & 0xFF);
+		res += buf;
+	}
+	res += "\n";
+	OutputDebugStringA(res.c_str());
+}
+
 //根据缓冲区和长度，初始化包
 CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 	//根据输入的buffer和长度，构建包
