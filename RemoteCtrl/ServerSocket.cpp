@@ -66,10 +66,29 @@ int CServerSocket::dealRecv() {
 }
 
 //处理发送
-int CServerSocket::dealSend() {
+int CServerSocket::dealSend(const char* pData,int nSize) {
 	if (!m_instance) return -1;
 	if (m_client_sock == INVALID_SOCKET) return -1;
-	return send(m_client_sock, "123", 3, 0) > 0;
+
+	return send(m_client_sock, pData, nSize, 0) > 0;
+}
+
+//求包长度(头 + 长度 + 命令 + 数据 + 校验和)
+size_t CPacket::size() {
+	return 6 + nLength;
+}
+
+//获取连续的数据地址
+const char* CPacket::data() {
+	strOut.resize(this->size());
+	BYTE* pData = (BYTE*)strOut.c_str();
+	*(WORD*)pData = sHead; pData += 2;
+	*(DWORD*)pData = nLength; pData += 4;
+	*(WORD*)pData = sCmd; pData += 2;
+	memcpy(pData, strData.c_str(), strData.size());
+	pData += strData.size();
+	*(WORD*)pData = sSum;
+	return strOut.c_str();
 }
 
 //根据缓冲区和长度，初始化包
@@ -109,7 +128,7 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 	sSum = *(WORD*)(pData + i);
 	WORD tmp_sum = 0;
 	for (size_t j = 0; j < strData.size(); j++) {
-		tmp_sum += BYTE(strData[j]) && 0xFF;
+		tmp_sum += BYTE(strData[j]) & 0xFF;
 	}
 	//包错误
 	if (tmp_sum != sSum) {
@@ -118,4 +137,17 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 	}
 	//nSize表示实际处理到了pData的哪个位置
 	nSize = i;
+}
+
+//数据打包
+CPacket::CPacket(WORD sCmd, BYTE* pData, size_t nSize) {
+	sHead = 0XFEFF;
+	nLength = 2+2 + nSize;
+	this->sCmd = sCmd;
+	strData.resize(nSize);
+	memcpy((void*)strData.c_str(), pData, nSize);
+	sSum = 0;
+	for (int i = 0; i < strData.size(); i++) {
+		sSum += BYTE(strData[i]) & 0xFF;
+	}
 }

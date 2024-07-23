@@ -3,10 +3,14 @@
 #include "pch.h"
 #include "framework.h"
 
+#pragma pack(push,1)//按1字节对齐
 class CPacket {
 public:
+	//默认构造
 	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
-	CPacket& operator=(CPacket& p) {
+	//拷贝 = 
+	CPacket& operator=(CPacket& p) 
+	{
 		//防止自赋值
 		if (this != &p) {
 			sHead = p.sHead;
@@ -17,6 +21,7 @@ public:
 		}
 		return *this;
 	}
+	//移动 = 
 	CPacket& operator=(CPacket&& p) noexcept {
 		if (this != &p) {
 			// 移动资源
@@ -36,20 +41,35 @@ public:
 
 		return *this;
 	}
-	CPacket(CPacket& p) {
+	//拷贝构造
+	CPacket(CPacket& p) 
+	{
 		(*this) = p;
 	}
-
-	CPacket(const BYTE* pData, size_t& nSize);
+	//析构
 	~CPacket() = default;
+
+
+	//重载取地址符号
+
+	//解包
+	CPacket(const BYTE* pData, size_t& nSize);
+	//打包
+	CPacket(WORD sCmd, BYTE* pData, size_t nSize);
+
+
+public:
+	size_t size(); //求包长度(头 + 长度 + 命令 + 数据 + 校验和)
+	const char* data();//返回数据区域的地址
 public:
 	WORD sHead;//包头 2字节 0xFEFF
 	DWORD nLength;//长度 4字节 命令 + 数据 + 校验和
 	WORD sCmd;//控制命令 2字节
 	std::string strData;//包数据
 	WORD sSum;//校验和 2字节，使用sum的方式
+	std::string strOut;//解析包时输出的数据
 };
-
+#pragma pack(pop)
 //单例模式
 class CServerSocket
 {
@@ -66,7 +86,7 @@ public:
 
 	int  dealRecv();//处理接受
 
-	int  dealSend();//处理发送
+	int  dealSend(const char* pData, int nSize);//处理发送
 private:
 	
 	BOOL initSockEnv();//初始化socket环境
