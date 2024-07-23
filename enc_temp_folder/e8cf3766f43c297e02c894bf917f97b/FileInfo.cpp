@@ -3,7 +3,6 @@
 #include "ServerSocket.h"
 #include <direct.h>
 #include <io.h>
-
 //获取磁盘分区信息
 void CFileInfo::getDiskDriveInfo() {
     std::string result = "";
@@ -80,12 +79,12 @@ int CFileInfo::getDirectoryInfo() {
 
 //运行文件
 int CFileInfo::runFile() {
-    std::string filePath = "";
-    if (!CServerSocket::getInstance()->getFilePath(filePath)) {
-        //没有执行文件查找cmd
-        OutputDebugString(_T("当前命令，不是运行文件，命令解析失败！"));
-        return -1;
-    }
+    std::string filePath = "C:/tt/1.txt";
+    //if (!CServerSocket::getInstance()->getFilePath(filePath)) {
+    //    //没有执行文件查找cmd
+    //    OutputDebugString(_T("当前命令，不是运行文件，命令解析失败！"));
+    //    return -1;
+    //}
     //执行文件
     HINSTANCE result = ShellExecuteA(NULL, NULL, filePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
     // 检查返回值
@@ -93,54 +92,5 @@ int CFileInfo::runFile() {
         OutputDebugString(_T("Error: Failed to open file"));
     }
 
-    return 0;
-}
-
-//下载文件
-int CFileInfo::downloadFile() {
-    //获取路径
-    std::string filePath = "";
-    if (!CServerSocket::getInstance()->getFilePath(filePath)) {
-        //没有执行文件查找cmd
-        OutputDebugString(_T("当前命令，不是运行文件，命令解析失败！"));
-        return -1;
-    }
-    //打开文件
-    FILE* file = NULL;
-    errno_t err = fopen_s(&file,filePath.c_str(), "rb");
-    long long dataLen = 0;
-    if (err != 0 || !file) {
-        //TODO:文件枚举
-        //读取失败，回复空数据包
-        CPacket packet(4,(BYTE*)&dataLen,8);
-        CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
-        //TODO: 发送失败
-        OutputDebugString(_T("打开文件失败！"));
-        return -2;
-    }
-
-    fseek(file, 0, SEEK_END);
-    dataLen = _ftelli64(file);
-    fseek(file, 0, SEEK_SET);
- 
-    //发送数据头
-    CPacket packet(4, (BYTE*)dataLen, 8);
-    CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
-    char buffer[1024] = "";
-    size_t ret = 0;
-    do {
-        memset(buffer, 0, sizeof(buffer));
-        ret = fread(buffer,1,sizeof(buffer),file);
-        //TODO:文件枚举
-        CPacket packet(4, (BYTE*)buffer, ret);
-        CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
-        //TODO: 发送失败
-    } while (ret >= 1024);
-
-    //发送结束标志位
-    CPacket packet(4, NULL, 0);
-    CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
-
-    fclose(file);
     return 0;
 }

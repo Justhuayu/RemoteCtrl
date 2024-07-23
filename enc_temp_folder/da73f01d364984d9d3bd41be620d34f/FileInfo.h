@@ -5,7 +5,6 @@ public:
 	void getDiskDriveInfo();//获取磁盘分区信息
 	int getDirectoryInfo();//获取文件目录信息
 	int runFile();//运行文件
-	int downloadFile();//下载文件
 public:
 	typedef struct file_info{
 		file_info() {

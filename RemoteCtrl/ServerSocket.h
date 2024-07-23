@@ -60,7 +60,7 @@ public:
 public:
 	size_t size(); //求包长度(头 + 长度 + 命令 + 数据 + 校验和)
 	const char* data();//返回数据区域的地址
-	void showPacket(BYTE* pData, size_t nSize);//打印包内容
+	void showPacket();//打印包内容
 public:
 	WORD sHead;//包头 2字节 0xFEFF
 	DWORD nLength;//长度 4字节 命令 + 数据 + 校验和

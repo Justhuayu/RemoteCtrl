@@ -57,10 +57,6 @@ int main()
                 //运行文件
                 fInfo.runFile();
                 break;
-            case 4:
-                //下载文件
-                fInfo.downloadFile();
-                break;
             default:
                 break;
             }
