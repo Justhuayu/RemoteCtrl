@@ -1,9 +1,11 @@
 #include "pch.h"
 #include "MouseCtrl.h"
 #include "ServerSocket.h"
+#include "Protocol.h"
 
+#include <atlimage.h>
 //鼠标操作
-int CMouseCtrl::MouseEvent() {
+int CMouseCtrl::mouseEvent() {
 	MOUSEEVENT mouse;
 	if (!CServerSocket::getInstance()->getMouseEvent(mouse)) {
 		//没有执行文件查找cmd
@@ -142,7 +144,52 @@ int CMouseCtrl::MouseEvent() {
 		default:
 			break;
 	}
-	CPacket packet(5, NULL, 0);
+	WORD sCmd = static_cast<WORD>(CProtocol::event::MOUSE_CTRL);
+
+	CPacket packet(sCmd, NULL, 0);
 	CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+	return 0;
+}
+
+//发送屏幕截图
+int CMouseCtrl::screenSend() {
+	WORD sCmd = static_cast<WORD>(CProtocol::event::SCREEN_SEND);
+	//HDC 通过各种 GDI（图形设备接口）函数传递，以执行绘图任务。
+	//DC 描述了绘图环境并提供绘图操作的接口
+	HDC hScreen = ::GetDC(NULL);
+	int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);
+	int nWidth = GetDeviceCaps(hScreen, HORZRES);
+	int nHeight = GetDeviceCaps(hScreen, VERTRES);
+	CImage screen;
+	//根据当前设备的宽高位图创建CImage
+	screen.Create(nWidth, nHeight, nBitPerPixel);
+	//位块传输函数，拷贝源DC hScreen 到 目标DC screen，实现屏幕像素复制
+	BitBlt(screen.GetDC(), 0, 0, nWidth, nHeight, hScreen, 0, 0, SRCCOPY);
+	ReleaseDC(NULL, hScreen);
+	//保存到本地
+	//screen.Save(_T("C:/tt/screen.png"), Gdiplus::ImageFormatPNG);
+	//将图片保存到内存，方便传输
+	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+	if (!hMem) return -1;
+	//内存流
+	IStream* pStream = NULL;
+	HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+	if (ret == S_OK) {
+		screen.Save(pStream, Gdiplus::ImageFormatPNG);
+		//保存流到screen后，流的指针移动到末尾，手动移动到开头
+		LARGE_INTEGER bg = { 0 };
+		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+		//锁定全局内存 hMem
+		PBYTE pData = (PBYTE)GlobalLock(hMem);
+		SIZE_T nSize = GlobalSize(hMem);
+		//根据全局内存，打包packet
+		CPacket packet(sCmd, pData, nSize);
+		CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+		GlobalUnlock(hMem);
+	}
+	
+	screen.ReleaseDC();
+	pStream->Release();
+	GlobalFree(hMem);
 	return 0;
 }

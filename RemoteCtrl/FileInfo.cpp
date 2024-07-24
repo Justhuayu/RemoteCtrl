@@ -3,7 +3,7 @@
 #include "ServerSocket.h"
 #include <direct.h>
 #include <io.h>
-
+#include "Protocol.h"
 //获取磁盘分区信息
 void CFileInfo::getDiskDriveInfo() {
     std::string result = "";
@@ -14,8 +14,10 @@ void CFileInfo::getDiskDriveInfo() {
             result += 'A' + i - 1;
         }
     }
+    WORD sCmd = static_cast<WORD>(CProtocol::event::DISK_DRVIE_INFO);
+
     //打包分区信息
-    CPacket packet(1, (BYTE*)result.c_str(), result.size());
+    CPacket packet(sCmd, (BYTE*)result.c_str(), result.size());
     //packet.showPacket();
     CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
 }
@@ -28,6 +30,7 @@ int CFileInfo::getDirectoryInfo() {
         OutputDebugString(_T("当前命令，不是查找文件列表，命令解析失败！"));
         return -1;
     }
+    WORD sCmd = static_cast<WORD>(CProtocol::event::DIR_INFO);
     if (_chdir(filePath.c_str()) != 0) {
         //切换路径失败
         FILEINFO finfo;
@@ -36,8 +39,7 @@ int CFileInfo::getDirectoryInfo() {
         finfo.isDirectory = true;
         memcpy(finfo.filename, filePath.c_str(), filePath.size());
         //发送文件
-        //TODO:文件枚举
-        CPacket packet(2, (BYTE*)&finfo, sizeof(finfo));
+        CPacket packet(sCmd, (BYTE*)&finfo, sizeof(finfo));
         //packet.showPacket();
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         //TODO: 文件发送失败处理
@@ -56,8 +58,7 @@ int CFileInfo::getDirectoryInfo() {
         memcpy(finfo.filename, fdata.name, strlen(fdata.name));
         finfo.isDirectory = (fdata.attrib & _A_SUBDIR) == 1;
         //发送文件
-        //TODO:文件枚举
-        CPacket packet(2, (BYTE*)&finfo, sizeof(finfo));
+        CPacket packet(sCmd, (BYTE*)&finfo, sizeof(finfo));
         //packet.showPacket();
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         //TODO: 文件发送失败处理
@@ -67,8 +68,7 @@ int CFileInfo::getDirectoryInfo() {
     finfo.isDirectory = false;
     finfo.hasNext = false;
     //发送文件
-    //TODO:文件枚举
-    CPacket packet(2, (BYTE*)&finfo, sizeof(finfo));
+    CPacket packet(sCmd, (BYTE*)&finfo, sizeof(finfo));
     //packet.showPacket();
     CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
     //TODO: 文件发送失败处理
@@ -109,10 +109,10 @@ int CFileInfo::downloadFile() {
     FILE* file = NULL;
     errno_t err = fopen_s(&file,filePath.c_str(), "rb");
     long long dataLen = 0;
+    WORD sCmd = static_cast<WORD>(CProtocol::event::DOWN_FILE);
     if (err != 0 || !file) {
-        //TODO:文件枚举
         //读取失败，回复空数据包
-        CPacket packet(4,(BYTE*)&dataLen,8);
+        CPacket packet(sCmd,(BYTE*)&dataLen,8);
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         //TODO: 发送失败
         OutputDebugString(_T("打开文件失败！"));
@@ -124,21 +124,20 @@ int CFileInfo::downloadFile() {
     fseek(file, 0, SEEK_SET);
  
     //发送数据头
-    CPacket head(4, (BYTE*)dataLen, 8);
+    CPacket head(sCmd, (BYTE*)dataLen, 8);
     CServerSocket::getInstance()->dealSend(head.data(), head.size());
     char buffer[1024] = "";
     size_t ret = 0;
     do {
         memset(buffer, 0, sizeof(buffer));
         ret = fread(buffer,1,sizeof(buffer),file);
-        //TODO:文件枚举
-        CPacket packet(4, (BYTE*)buffer, ret);
+        CPacket packet(sCmd, (BYTE*)buffer, ret);
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         //TODO: 发送失败
     } while (ret >= 1024);
 
     //发送结束标志位
-    CPacket end(4, NULL, 0);
+    CPacket end(sCmd, NULL, 0);
     CServerSocket::getInstance()->dealSend(end.data(), end.size());
 
     fclose(file);

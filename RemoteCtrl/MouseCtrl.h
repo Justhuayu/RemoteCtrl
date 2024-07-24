@@ -14,7 +14,8 @@ public:
 		POINT ptXY;//坐标
 	}MOUSEEVENT,*PMOUSEEVENT;
 public:
-	int MouseEvent();//鼠标操作
+	int mouseEvent();//鼠标操作
+	int screenSend();//发送屏幕截图
 
 };
 

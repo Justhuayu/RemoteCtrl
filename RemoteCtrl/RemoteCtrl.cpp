@@ -8,6 +8,8 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "FileInfo.h"
+#include "Protocol.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -40,32 +42,35 @@ int main()
         }
         else
         {
-            WORD sCmd = 3;
+            WORD sCmd = 6;
             CFileInfo fInfo;
             CMouseCtrl mCtrl;
-            switch (sCmd) {
-            case 1:
+            switch (static_cast<CProtocol::event>(sCmd)) {
+            case CProtocol::event::DISK_DRVIE_INFO:
             {
                 //获取磁盘分区信息
                 fInfo.getDiskDriveInfo();
                 break;
             }
-            case 2:
+            case CProtocol::event::DIR_INFO:
                 //获取文件目录信息
                 fInfo.getDirectoryInfo();
                 break;
-            case 3:
+            case CProtocol::event::RUN_FILE:
                 //运行文件
                 fInfo.runFile();
                 break;
-            case 4:
+            case CProtocol::event::DOWN_FILE:
                 //下载文件
                 fInfo.downloadFile();
                 break;
-            case 5:
+            case CProtocol::event::MOUSE_CTRL:
                 //鼠标操作
-                mCtrl.MouseEvent();
+                mCtrl.mouseEvent();
                 break;
+            case CProtocol::event::SCREEN_SEND:
+                //屏幕监控
+                mCtrl.screenSend();
             default:
                 break;
             }

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ServerSocket.h"
-
+#include "Protocol.h"
+#include <set>
 #define PORT 9527 //服务端socket端口号
 #define BUFFER_SIZE 4096 //recv buffer大小
 
@@ -75,19 +76,25 @@ int CServerSocket::dealSend(const char* pData,int nSize) {
 
 //获取文件路径
 bool CServerSocket::getFilePath(std::string& strPath) {
-	//TODO:文件处理枚举
-	if (m_packet.sCmd >= 2 && m_packet.sCmd <= 4)
-	{
+	
+	const std::set<CProtocol::event> validCommands = {
+		CProtocol::event::DIR_INFO,
+		CProtocol::event::RUN_FILE,
+		CProtocol::event::DOWN_FILE
+	};
+
+	// 检查 sCmd 是否在列表中
+	if (validCommands.find(static_cast<CProtocol::event>(m_packet.sCmd)) != validCommands.end()) {
 		strPath = m_packet.strData;
 		return true;
 	}
 	return false;
+
 }
 
 //获取鼠标事件
 bool CServerSocket::getMouseEvent(CMouseCtrl::MOUSEEVENT &mouse) {
-	//TODO:鼠标处理枚举
-	if (m_packet.sCmd == 5)
+	if (m_packet.sCmd == static_cast<WORD>(CProtocol::event::MOUSE_CTRL))
 	{
 		memcpy(&mouse, m_packet.strData.c_str(), sizeof(mouse));
 		return true;
