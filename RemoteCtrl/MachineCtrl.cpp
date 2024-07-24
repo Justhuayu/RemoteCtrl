@@ -1,11 +1,14 @@
 #include "pch.h"
-#include "MouseCtrl.h"
+#include "MachineCtrl.h"
 #include "ServerSocket.h"
 #include "Protocol.h"
-
+#include "resource.h"
 #include <atlimage.h>
+//定义全局变量
+CLockDialog dlg;
+unsigned dlg_threadid = 0;
 //鼠标操作
-int CMouseCtrl::mouseEvent() {
+int CMachineCtrl::mouseEvent() {
 	MOUSEEVENT mouse;
 	if (!CServerSocket::getInstance()->getMouseEvent(mouse)) {
 		//没有执行文件查找cmd
@@ -152,7 +155,7 @@ int CMouseCtrl::mouseEvent() {
 }
 
 //发送屏幕截图
-int CMouseCtrl::screenSend() {
+int CMachineCtrl::screenSend() {
 	WORD sCmd = static_cast<WORD>(CProtocol::event::SCREEN_SEND);
 	//HDC 通过各种 GDI（图形设备接口）函数传递，以执行绘图任务。
 	//DC 描述了绘图环境并提供绘图操作的接口
@@ -191,5 +194,82 @@ int CMouseCtrl::screenSend() {
 	screen.ReleaseDC();
 	pStream->Release();
 	GlobalFree(hMem);
+	return 0;
+}
+
+//锁机子线程
+unsigned __stdcall threadLockDlg(void *arg) {
+	//非模态创建窗口，DoModal模态创建
+	dlg.Create(IDD_DIALOG_INFO, NULL);
+	//显示窗口
+	dlg.ShowWindow(SW_SHOW);
+
+	//遮住屏幕
+	CRect rect;
+	rect.left = -10;
+	rect.top = -10;
+	rect.right = GetSystemMetrics(SM_CXFULLSCREEN) * 1.1;
+	rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN) * 1.1;
+	dlg.MoveWindow(rect);
+	//窗口置顶
+	dlg.SetWindowPos(&dlg.wndTopMost, -10, -10, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+
+	//隐藏任务栏
+	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
+
+	//限制鼠标活动
+	ShowCursor(false);
+	rect.left = 10;
+	rect.right = 1;
+	rect.top = 10;
+	rect.bottom = 1;
+	ClipCursor(rect);
+
+	//MFC 消息循环
+	MSG msg{};
+	//循环获取消息
+	while (GetMessageA(&msg, NULL, 0, 0)) {
+		//翻译消息
+		TranslateMessage(&msg);
+		//分派消息
+		DispatchMessage(&msg);
+		//处理消息(msg.wParam 和 msg.lParam 携带附加消息)
+		if (msg.message == WM_KEYDOWN) {
+			if (msg.wParam == 0x1B) {
+				TRACE(_T("msg: %08x, wParam: %08x, lParam: %08x\r\n"), msg.message, msg.wParam, msg.lParam);
+				//esc 退出
+				break;
+			}
+		}
+	}
+	//显示系统任务栏
+	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);
+	ShowCursor(TRUE);
+	dlg.DestroyWindow();
+	_endthreadex(0);
+	return 0;
+}
+//锁机
+int CMachineCtrl::lockMachine() {
+	if (dlg.m_hWnd == NULL || dlg.m_hWnd == INVALID_HANDLE_VALUE) {
+		//第一次执行锁机
+		_beginthreadex(NULL,0,threadLockDlg, NULL,0, &dlg_threadid);
+	}
+	WORD sCmd = static_cast<WORD>(CProtocol::event::LOCK_MACHINE);
+	CPacket packet(sCmd, NULL, 0);
+	CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+	return 0;
+}
+
+//解锁机器
+int CMachineCtrl::unlockMachine() {
+
+	//dlg.SendMessage(WM_KEYDOWN, VK_ESCAPE, lParam);
+	//跨线程发送按键消息，SednMessage只会单线程内发送消息，子线程接收不到
+	PostThreadMessage(dlg_threadid, WM_KEYDOWN, VK_ESCAPE, 0x00010001);
+
+	WORD sCmd = static_cast<WORD>(CProtocol::event::UNLOCK_MACHINE);
+	CPacket packet(sCmd, NULL, 0);
+	CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
 	return 0;
 }

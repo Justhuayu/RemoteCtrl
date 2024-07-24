@@ -1,5 +1,9 @@
 #pragma once
-class CMouseCtrl
+#include "LockDialog.h"
+//声明全局 CLockDialog变量
+extern CLockDialog dlg;
+
+class CMachineCtrl
 {
 public:
 	typedef struct _mouse_event{
@@ -16,6 +20,9 @@ public:
 public:
 	int mouseEvent();//鼠标操作
 	int screenSend();//发送屏幕截图
+	int lockMachine();//锁机	
+	int unlockMachine();//解锁机器
+
 
 };
 

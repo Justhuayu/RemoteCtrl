@@ -4,7 +4,7 @@
 #include "pch.h"
 #include "framework.h"
 #include <direct.h>
-#include "MouseCtrl.h"
+#include "MachineCtrl.h"
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "FileInfo.h"
@@ -42,9 +42,9 @@ int main()
         }
         else
         {
-            WORD sCmd = 6;
+            WORD sCmd = 7;
             CFileInfo fInfo;
-            CMouseCtrl mCtrl;
+            CMachineCtrl mCtrl;
             switch (static_cast<CProtocol::event>(sCmd)) {
             case CProtocol::event::DISK_DRVIE_INFO:
             {
@@ -71,9 +71,24 @@ int main()
             case CProtocol::event::SCREEN_SEND:
                 //屏幕监控
                 mCtrl.screenSend();
+                break;
+            case CProtocol::event::LOCK_MACHINE:
+                //锁机
+                mCtrl.lockMachine();
+                Sleep(50);
+                mCtrl.lockMachine();
+                break;
+            case CProtocol::event::UNLOCK_MACHINE:
+                //解锁
+                mCtrl.unlockMachine();
+                break;
             default:
                 break;
             }
+            Sleep(1000);
+            mCtrl.unlockMachine();
+            while (dlg.m_hWnd != NULL && dlg.m_hWnd != INVALID_HANDLE_VALUE) Sleep(50);
+            TRACE(_T("m_hWnd %d\r\n",dlg.m_hWnd));
             // TODO: 在此处为应用程序的行为编写代码。
             //套接字初始化
             //CServerSocket* server = CServerSocket::getInstance();

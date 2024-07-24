@@ -70,7 +70,7 @@ int CServerSocket::dealRecv() {
 int CServerSocket::dealSend(const char* pData,int nSize) {
 	if (!m_instance) return -1;
 	if (m_client_sock == INVALID_SOCKET) return -1;
-
+	TRACE(_T("ready send!!\r\n"));
 	return send(m_client_sock, pData, nSize, 0) > 0;
 }
 
@@ -93,7 +93,7 @@ bool CServerSocket::getFilePath(std::string& strPath) {
 }
 
 //获取鼠标事件
-bool CServerSocket::getMouseEvent(CMouseCtrl::MOUSEEVENT &mouse) {
+bool CServerSocket::getMouseEvent(CMachineCtrl::MOUSEEVENT &mouse) {
 	if (m_packet.sCmd == static_cast<WORD>(CProtocol::event::MOUSE_CTRL))
 	{
 		memcpy(&mouse, m_packet.strData.c_str(), sizeof(mouse));

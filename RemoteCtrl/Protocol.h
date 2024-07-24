@@ -9,7 +9,9 @@ namespace CProtocol {
 		RUN_FILE,
 		DOWN_FILE,
 		MOUSE_CTRL,
-		SCREEN_SEND
+		SCREEN_SEND,
+		LOCK_MACHINE,
+		UNLOCK_MACHINE
 	};
 
 };

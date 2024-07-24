@@ -131,15 +131,19 @@ int CFileInfo::downloadFile() {
     do {
         memset(buffer, 0, sizeof(buffer));
         ret = fread(buffer,1,sizeof(buffer),file);
+        if (ret <= 0) {
+            // 处理读取错误
+            OutputDebugString(_T("读取文件时出错！"));
+            fclose(file);
+            return -3;
+        }
         CPacket packet(sCmd, (BYTE*)buffer, ret);
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         //TODO: 发送失败
     } while (ret >= 1024);
-
     //发送结束标志位
     CPacket end(sCmd, NULL, 0);
     CServerSocket::getInstance()->dealSend(end.data(), end.size());
-
     fclose(file);
     return 0;
 }
