@@ -4,7 +4,7 @@
 #include "pch.h"
 #include "framework.h"
 #include <direct.h>
-
+#include "MouseCtrl.h"
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "FileInfo.h"
@@ -42,6 +42,7 @@ int main()
         {
             WORD sCmd = 3;
             CFileInfo fInfo;
+            CMouseCtrl mCtrl;
             switch (sCmd) {
             case 1:
             {
@@ -60,6 +61,10 @@ int main()
             case 4:
                 //下载文件
                 fInfo.downloadFile();
+                break;
+            case 5:
+                //鼠标操作
+                mCtrl.MouseEvent();
                 break;
             default:
                 break;

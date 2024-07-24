@@ -2,6 +2,7 @@
 
 #include "pch.h"
 #include "framework.h"
+#include "MouseCtrl.h"
 
 #pragma pack(push,1)//按1字节对齐
 class CPacket {
@@ -85,7 +86,7 @@ public:
 	int  dealRecv();//处理接受
 	int  dealSend(const char* pData, int nSize);//处理发送
 	bool getFilePath(std::string& strPath);//获取文件路径
-
+	bool getMouseEvent(CMouseCtrl::MOUSEEVENT &mouse);//获取鼠标事件
 private:
 	
 	BOOL initSockEnv();//初始化socket环境

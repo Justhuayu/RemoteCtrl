@@ -30,7 +30,7 @@ int CFileInfo::getDirectoryInfo() {
     }
     if (_chdir(filePath.c_str()) != 0) {
         //切换路径失败
-        file_info finfo;
+        FILEINFO finfo;
         finfo.hasNext = false;
         finfo.isInvalid = true;
         finfo.isDirectory = true;
@@ -52,7 +52,7 @@ int CFileInfo::getDirectoryInfo() {
         return -3;
     }
     do {
-        file_info finfo;
+        FILEINFO finfo;
         memcpy(finfo.filename, fdata.name, strlen(fdata.name));
         finfo.isDirectory = (fdata.attrib & _A_SUBDIR) == 1;
         //发送文件
@@ -63,7 +63,7 @@ int CFileInfo::getDirectoryInfo() {
         //TODO: 文件发送失败处理
     } while (!_findnext(hfind, &fdata));
     //发送文件结束
-    file_info finfo;
+    FILEINFO finfo;
     finfo.isDirectory = false;
     finfo.hasNext = false;
     //发送文件
@@ -124,8 +124,8 @@ int CFileInfo::downloadFile() {
     fseek(file, 0, SEEK_SET);
  
     //发送数据头
-    CPacket packet(4, (BYTE*)dataLen, 8);
-    CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+    CPacket head(4, (BYTE*)dataLen, 8);
+    CServerSocket::getInstance()->dealSend(head.data(), head.size());
     char buffer[1024] = "";
     size_t ret = 0;
     do {
@@ -138,8 +138,8 @@ int CFileInfo::downloadFile() {
     } while (ret >= 1024);
 
     //发送结束标志位
-    CPacket packet(4, NULL, 0);
-    CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+    CPacket end(4, NULL, 0);
+    CServerSocket::getInstance()->dealSend(end.data(), end.size());
 
     fclose(file);
     return 0;

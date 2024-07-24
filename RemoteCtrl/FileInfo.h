@@ -7,8 +7,8 @@ public:
 	int runFile();//运行文件
 	int downloadFile();//下载文件
 public:
-	typedef struct file_info{
-		file_info() {
+	typedef struct _file_info{
+		_file_info() {
 			isInvalid = false;
 			hasNext = true;
 			isDirectory = -1;

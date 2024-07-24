@@ -84,6 +84,17 @@ bool CServerSocket::getFilePath(std::string& strPath) {
 	return false;
 }
 
+//获取鼠标事件
+bool CServerSocket::getMouseEvent(CMouseCtrl::MOUSEEVENT &mouse) {
+	//TODO:鼠标处理枚举
+	if (m_packet.sCmd == 5)
+	{
+		memcpy(&mouse, m_packet.strData.c_str(), sizeof(mouse));
+		return true;
+	}
+	return false;
+}
+
 //-----------------------------------------------------------------------------------------------------------
 //根据缓冲区和长度，初始化包
 CPacket::CPacket(const BYTE* pData, size_t& nSize) {
