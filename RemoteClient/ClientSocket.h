@@ -2,14 +2,17 @@
 
 #include "pch.h"
 #include "framework.h"
-#include "MachineCtrl.h"
+#include <string>
+#include <vector>
+#define PORT 9527 //服务端socket端口号
+#define BUFFER_SIZE 4096 //recv buffer大小
 #pragma pack(push,1)//按1字节对齐
 class CPacket {
 public:
 	//默认构造
 	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
 	//拷贝 = 
-	CPacket& operator=(CPacket& p) 
+	CPacket& operator=(CPacket& p)
 	{
 		//防止自赋值
 		if (this != &p) {
@@ -42,7 +45,7 @@ public:
 		return *this;
 	}
 	//拷贝构造
-	CPacket(CPacket& p) 
+	CPacket(CPacket& p)
 	{
 		(*this) = p;
 	}
@@ -55,7 +58,7 @@ public:
 	CPacket(const BYTE* pData, size_t& nSize);
 	//打包
 	CPacket(WORD sCmd, BYTE* pData, size_t nSize);
-	
+
 
 public:
 	size_t size(); //求包长度(头 + 长度 + 命令 + 数据 + 校验和)
@@ -71,61 +74,58 @@ public:
 };
 #pragma pack(pop)
 //单例模式
-class CServerSocket
+class CClientSocket
 {
 public:
-	static CServerSocket* getInstance() {
+	static CClientSocket* getInstance() {
 		if (!m_instance) {
-			m_instance = new CServerSocket;
+			m_instance = new CClientSocket();
 		}
 		return m_instance;
 	}
-	BOOL initSockEnv();//初始化socket环境
-	bool acceptClient();//接受新客户端
+
 	int  dealRecv();//处理接受
+	int  dealSend(const char* pData, int nSize);//处理发送
+	BOOL initSockEnv(const std::string& strIpAddr);//初始化socket环境
 	CPacket& getCPacket() {//获取 CPakcet
 		return m_packet;
 	}
-	void closeClient() {
-		closesocket(m_client_sock);
+	void closeClient() {//关闭client socket
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 	}
-	int  dealSend(const char* pData, int nSize);//处理发送
-	bool getFilePath(std::string& strPath);//获取文件路径
-	bool getMouseEvent(CMachineCtrl::MOUSEEVENT &mouse);//获取鼠标事件
 private:
-	
 
-	CServerSocket& operator=(CServerSocket& ss) {
+	CClientSocket& operator=(CClientSocket& ss) {
 		//防止自赋值
 		if (this != &ss) {
 			m_sock = ss.m_sock;
-			m_client_sock = ss.m_client_sock;
 		}
 		return *this;
 	}
 
-	CServerSocket(CServerSocket& ss) {
+	CClientSocket(CClientSocket& ss) {
 		(*this) = ss;
 	}
 
-	CServerSocket() {
-		/*if (!initSockEnv()) {
-			MessageBox(NULL, _T("初始化socket失败，检查网络连接！"), _T("网络错误"), MB_OK | MB_ICONERROR);
-			exit(0);
-		}*/
-		m_client_sock = INVALID_SOCKET;
+	CClientSocket() {
 
+		m_buffer.resize(BUFFER_SIZE);
 	}
-	~CServerSocket() {
-		closesocket(m_sock);
+	~CClientSocket() {
+		if (m_sock != INVALID_SOCKET) {
+			closesocket(m_sock);
+			m_sock = INVALID_SOCKET;
+		}
 		WSACleanup();
 	}
 
 	//释放单例模式
 	static void releaseInstance() {
 		if (m_instance) {
-			TRACE(_T("ServerSocket releaseInstance()"));
-			CServerSocket* tmp = m_instance;
+			TRACE(_T("CClientSocket releaseInstance()"));
+
+			CClientSocket* tmp = m_instance;
 			m_instance = nullptr;
 			delete tmp;
 		}
@@ -134,18 +134,17 @@ private:
 	class CServerHelp {
 	public:
 		CServerHelp() {
-			CServerSocket::getInstance();
+			CClientSocket::getInstance();
 		}
 		~CServerHelp() {
-			CServerSocket::releaseInstance();
+			CClientSocket::releaseInstance();
 		}
 	};
 
 private:
-	static CServerSocket* m_instance;
+	std::vector<char> m_buffer;
+	static CClientSocket* m_instance;
 	static CServerHelp m_help;
 	SOCKET m_sock;
-	SOCKET m_client_sock;
 	CPacket m_packet;
 };
-

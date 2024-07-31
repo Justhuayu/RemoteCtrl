@@ -1,16 +1,30 @@
 #include "pch.h"
-#include "ServerSocket.h"
+#include "ClientSocket.h"
+#include "pch.h"
 #include "Protocol.h"
 #include <set>
-#define PORT 9527 //服务端socket端口号
-#define BUFFER_SIZE 4096 //recv buffer大小
+
 
 //静态变量定义
-CServerSocket* CServerSocket::m_instance = nullptr;
-CServerSocket::CServerHelp CServerSocket::m_help;
+CClientSocket* CClientSocket::m_instance = nullptr;
+CClientSocket::CServerHelp CClientSocket::m_help;
+
+std::string getErrorInfo(int wsaErrCode) {
+	std::string str;
+	LPVOID lpMsgBuf = NULL;
+	FormatMessage(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+		NULL,
+		wsaErrCode,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&lpMsgBuf, 0, NULL);
+	return str;
+}
 
 //初始化socket连接
-BOOL CServerSocket::initSockEnv() {
+BOOL CClientSocket::initSockEnv(const std::string& strIpAddr) {
+	//关闭client，避免重复初始化
+	if (m_sock != INVALID_SOCKET) closeClient();
 	//初始化socket环境
 	WSADATA data;
 	if (0 != WSAStartup(MAKEWORD(1, 1), &data)) {
@@ -21,47 +35,36 @@ BOOL CServerSocket::initSockEnv() {
 	if (m_sock == -1) return false;
 	sockaddr_in sock_addr{};
 	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = INADDR_ANY;
+	sock_addr.sin_addr.s_addr = inet_addr(strIpAddr.c_str());
 	sock_addr.sin_port = htons(PORT);
-	if (-1 == bind(m_sock, (const sockaddr*)&sock_addr, sizeof(sock_addr))) return false;
-	if (-1 == listen(m_sock, 1)) return false;
-	return true;
-}
-
-//创建新客户端连接
-bool CServerSocket::acceptClient() {
-	if (!m_instance) return false;
-	if (m_sock == INVALID_SOCKET) return false;
-	sockaddr_in client_sock;
-	int client_length = sizeof(client_sock);
-	m_client_sock = accept(m_sock, (sockaddr*)&client_sock, &client_length);
-	if (m_client_sock == INVALID_SOCKET) return false;
+	if (sock_addr.sin_addr.s_addr == INADDR_NONE) {
+		AfxMessageBox(_T("IP地址不存在！"));
+		return false;
+	}
+	int ret = connect(m_sock, (const sockaddr*) & sock_addr,sizeof(sock_addr));
+	if (ret == -1) {
+		AfxMessageBox(_T("连接失败！"));
+		TRACE(_T("连接失败： %d %s\r\n"),WSAGetLastError(), getErrorInfo(WSAGetLastError()));
+		return false;
+	}
 	return true;
 }
 
 //处理接收
-int CServerSocket::dealRecv() {
+int CClientSocket::dealRecv() {
 	if (!m_instance) return -1;
-	if (m_client_sock == INVALID_SOCKET) return -1;
 	//定义缓冲区
-	char* buffer = new char[BUFFER_SIZE];
-	if (buffer == NULL) {
-		TRACE(_T("buffer 内存不足！"));
-		return -2;
-	}
+	char* buffer = m_buffer.data();
 	memset(buffer, 0, BUFFER_SIZE);
 	size_t index = 0;
 	while (1) {
-		size_t ret = recv(m_client_sock,buffer+index,BUFFER_SIZE - index,0);
-		if (ret < 0)
-		{
-			delete[]buffer;
+		size_t ret = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
+		if (ret < 0) {
 			return -1;
 		}
 		else if (ret == 0)//断开连接
 		{
-			delete[]buffer;
-			return 0;
+			return 1;
 		}
 		//可能多次 recv，因此必须是 +=
 		index += ret;
@@ -71,48 +74,18 @@ int CServerSocket::dealRecv() {
 		if (ret == 0) continue;
 		//读取一个包，缓冲区消息删除
 		//memmove 移动数据，内存重合解决方法：不重合从前往后移动，重合时从后往前移动（i=n;dest[i - 1] = src[i - 1];i--）
-		memmove(buffer, buffer + ret,BUFFER_SIZE - ret);
+		memmove(buffer, buffer + ret, BUFFER_SIZE - ret);
 		index -= ret;
-		delete[]buffer;
 		return m_packet.sCmd;
 	}
 	return 0;
 }
 
 //处理发送
-int CServerSocket::dealSend(const char* pData,int nSize) {
+int CClientSocket::dealSend(const char* pData, int nSize) {
 	if (!m_instance) return -1;
-	if (m_client_sock == INVALID_SOCKET) return -1;
-	TRACE(_T("server ready send!!\r\n"));
-	return send(m_client_sock, pData, nSize, 0) > 0;
-}
-
-//获取文件路径
-bool CServerSocket::getFilePath(std::string& strPath) {
-	
-	const std::set<CProtocol::event> validCommands = {
-		CProtocol::event::DIR_INFO,
-		CProtocol::event::RUN_FILE,
-		CProtocol::event::DOWN_FILE
-	};
-
-	// 检查 sCmd 是否在列表中
-	if (validCommands.find(static_cast<CProtocol::event>(m_packet.sCmd)) != validCommands.end()) {
-		strPath = m_packet.strData;
-		return true;
-	}
-	return false;
-
-}
-
-//获取鼠标事件
-bool CServerSocket::getMouseEvent(CMachineCtrl::MOUSEEVENT &mouse) {
-	if (m_packet.sCmd == static_cast<WORD>(CProtocol::event::MOUSE_CTRL))
-	{
-		memcpy(&mouse, m_packet.strData.c_str(), sizeof(mouse));
-		return true;
-	}
-	return false;
+	TRACE(_T("client ready send!!\r\n"));
+	return send(m_sock, pData, nSize, 0) > 0;
 }
 
 //-----------------------------------------------------------------------------------------------------------

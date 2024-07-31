@@ -7,7 +7,8 @@
 #include "RemoteClient.h"
 #include "RemoteClientDlg.h"
 #include "afxdialogex.h"
-
+#include "ClientSocket.h"
+#include "Protocol.h"
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -65,6 +66,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_BUTTON_CONNECT, &CRemoteClientDlg::OnBnClickedButtonConnect)
 END_MESSAGE_MAP()
 
 
@@ -153,3 +155,20 @@ HCURSOR CRemoteClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+void CRemoteClientDlg::OnBnClickedButtonConnect()
+{
+	CClientSocket* pSock = CClientSocket::getInstance();
+	if (!pSock->initSockEnv("127.0.0.1")) {
+		AfxMessageBox(_T("连接失败！"));
+		return;
+	}
+	WORD sCmd = static_cast<WORD>(CProtocol::event::DISK_DRVIE_INFO);
+	CPacket pack(sCmd,NULL,0);
+	pSock->dealSend(pack.data(), pack.size());
+	
+	pSock->dealRecv();
+	pack = pSock->getCPacket();
+	AfxMessageBox(pack.strData.c_str());
+	pSock->closeClient();
+}

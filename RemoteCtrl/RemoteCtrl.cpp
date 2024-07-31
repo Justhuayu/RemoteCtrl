@@ -25,6 +25,50 @@ CWinApp theApp;
 
 using namespace std;
 
+int executeCmd(const WORD sCmd) {
+    int ret{};
+    CFileInfo fInfo;
+    CMachineCtrl mCtrl;
+    switch (static_cast<CProtocol::event>(sCmd)) {
+    case CProtocol::event::DISK_DRVIE_INFO:
+    {
+        //获取磁盘分区信息
+        ret = fInfo.getDiskDriveInfo();
+        break;
+    }
+    case CProtocol::event::DIR_INFO:
+        //获取文件目录信息
+        ret = fInfo.getDirectoryInfo();
+        break;
+    case CProtocol::event::RUN_FILE:
+        //运行文件
+        ret = fInfo.runFile();
+        break;
+    case CProtocol::event::DOWN_FILE:
+        //下载文件
+        ret = fInfo.downloadFile();
+        break;
+    case CProtocol::event::MOUSE_CTRL:
+        //鼠标操作
+        ret = mCtrl.mouseEvent();
+        break;
+    case CProtocol::event::SCREEN_SEND:
+        //屏幕监控
+        ret = mCtrl.screenSend();
+        break;
+    case CProtocol::event::LOCK_MACHINE:
+        //锁机
+        ret = mCtrl.lockMachine();
+        break;
+    case CProtocol::event::UNLOCK_MACHINE:
+        //解锁
+        ret = mCtrl.unlockMachine();
+        break;
+    default:
+        break;
+    }
+    return ret;
+}
 int main()
 {
     int nRetCode = 0;
@@ -42,78 +86,36 @@ int main()
         }
         else
         {
-            WORD sCmd = 7;
-            CFileInfo fInfo;
-            CMachineCtrl mCtrl;
-            switch (static_cast<CProtocol::event>(sCmd)) {
-            case CProtocol::event::DISK_DRVIE_INFO:
-            {
-                //获取磁盘分区信息
-                fInfo.getDiskDriveInfo();
-                break;
-            }
-            case CProtocol::event::DIR_INFO:
-                //获取文件目录信息
-                fInfo.getDirectoryInfo();
-                break;
-            case CProtocol::event::RUN_FILE:
-                //运行文件
-                fInfo.runFile();
-                break;
-            case CProtocol::event::DOWN_FILE:
-                //下载文件
-                fInfo.downloadFile();
-                break;
-            case CProtocol::event::MOUSE_CTRL:
-                //鼠标操作
-                mCtrl.mouseEvent();
-                break;
-            case CProtocol::event::SCREEN_SEND:
-                //屏幕监控
-                mCtrl.screenSend();
-                break;
-            case CProtocol::event::LOCK_MACHINE:
-                //锁机
-                mCtrl.lockMachine();
-                Sleep(50);
-                mCtrl.lockMachine();
-                break;
-            case CProtocol::event::UNLOCK_MACHINE:
-                //解锁
-                mCtrl.unlockMachine();
-                break;
-            default:
-                break;
-            }
-            Sleep(1000);
-            mCtrl.unlockMachine();
-            while (dlg.m_hWnd != NULL && dlg.m_hWnd != INVALID_HANDLE_VALUE) Sleep(50);
-            TRACE(_T("m_hWnd %d\r\n",dlg.m_hWnd));
             // TODO: 在此处为应用程序的行为编写代码。
             //套接字初始化
-            //CServerSocket* server = CServerSocket::getInstance();
-            //if (!server->acceptClient()) return false;
-            //while (CServerSocket::getInstance()) {
-            //    //server->dealRecv();
-            //    //处理文件
-            //    WORD sCmd = 2;
-            //    CFileInfo fInfo;
-            //    switch (sCmd) {
-            //    case 1:
-            //    {
-            //        //获取磁盘分区信息
-            //        fInfo.getDiskDriveInfo();
-            //        break;
-            //    }
-            //    case 2:
-            //        //获取文件目录信息
-            //        fInfo.getDirectoryInfo();
-            //        break;
-            //    default:
-            //        break;
-            //    }
-            //}
-            
+            CServerSocket* server = CServerSocket::getInstance();
+            if (!server->initSockEnv()) {
+                MessageBox(NULL, _T("网络初始化失败！"), _T("网络初始化失败！"), MB_OK | MB_ICONERROR);
+                exit(0);
+            }
+            int count = 0;
+            while (CServerSocket::getInstance() != NULL) {
+                if (!server->acceptClient()) {
+                    if (count >= 3) {
+                        MessageBox(NULL,_T("多次连接用户失败！"),_T("连接用户失败！"),MB_OK|MB_ICONERROR);
+                        exit(0);
+                    }
+                    MessageBox(NULL, _T("连接失败，自动重试！"), _T("连接用户失败！"), MB_OK | MB_ICONERROR);
+                    count++;
+                }
+                int ret = server->dealRecv();
+                if (ret < 0) {
+                    MessageBox(NULL, _T("接受包失败！"), _T("处理包失败！"), MB_OK | MB_ICONERROR);
+                    continue;
+                }
+                ret = executeCmd(server->getCPacket().sCmd);
+                if (ret < 0) {
+                    MessageBox(NULL, _T("执行命令失败！"), _T("处理包失败！"), MB_OK | MB_ICONERROR);
+                    continue;
+                }
+                //短连接，连接一次，执行一次命令
+                server->closeClient();
+            }
         }
 
         

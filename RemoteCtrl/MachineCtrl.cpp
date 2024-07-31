@@ -82,7 +82,6 @@ int CMachineCtrl::mouseEvent() {
 		{
 			mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
 			mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
-
 		}
 		case 0x11: //左键单击
 		{
@@ -220,9 +219,9 @@ unsigned __stdcall threadLockDlg(void *arg) {
 	//限制鼠标活动
 	ShowCursor(false);
 	rect.left = 10;
-	rect.right = 1;
+	rect.right = 11;
 	rect.top = 10;
-	rect.bottom = 1;
+	rect.bottom = 11;
 	ClipCursor(rect);
 
 	//MFC 消息循环

@@ -5,7 +5,7 @@
 #include <io.h>
 #include "Protocol.h"
 //获取磁盘分区信息
-void CFileInfo::getDiskDriveInfo() {
+int CFileInfo::getDiskDriveInfo() {
     std::string result = "";
     for (int i = 1; i <= 26; i++) {
         //_chdrive 1--A,2--B,...
@@ -20,6 +20,7 @@ void CFileInfo::getDiskDriveInfo() {
     CPacket packet(sCmd, (BYTE*)result.c_str(), result.size());
     //packet.showPacket();
     CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+    return 0;
 }
 
 //获取文件目录信息 //TODO:显示本地路径有问题
@@ -75,7 +76,7 @@ int CFileInfo::getDirectoryInfo() {
 
     //关闭查找句柄
     _findclose(hfind);
-    return 1;
+    return 0;
 }
 
 //运行文件
