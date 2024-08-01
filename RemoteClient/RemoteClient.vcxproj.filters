@@ -44,14 +44,14 @@
     <ClCompile Include="RemoteClient.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="RemoteClientDlg.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ClientSocket.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteClientDlg.cpp">
+      <Filter>资源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

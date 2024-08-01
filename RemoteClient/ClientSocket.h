@@ -86,7 +86,7 @@ public:
 
 	int  dealRecv();//处理接受
 	int  dealSend(const char* pData, int nSize);//处理发送
-	BOOL initSockEnv(const std::string& strIpAddr);//初始化socket环境
+	BOOL initSockEnv(int ipAddr, int nPort);//初始化socket环境
 	CPacket& getCPacket() {//获取 CPakcet
 		return m_packet;
 	}

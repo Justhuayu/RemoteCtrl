@@ -22,7 +22,7 @@ std::string getErrorInfo(int wsaErrCode) {
 }
 
 //初始化socket连接
-BOOL CClientSocket::initSockEnv(const std::string& strIpAddr) {
+BOOL CClientSocket::initSockEnv(int ipAddr,int nPort) {
 	//关闭client，避免重复初始化
 	if (m_sock != INVALID_SOCKET) closeClient();
 	//初始化socket环境
@@ -35,8 +35,8 @@ BOOL CClientSocket::initSockEnv(const std::string& strIpAddr) {
 	if (m_sock == -1) return false;
 	sockaddr_in sock_addr{};
 	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = inet_addr(strIpAddr.c_str());
-	sock_addr.sin_port = htons(PORT);
+	sock_addr.sin_addr.s_addr = htonl(ipAddr);//主机序转网络序
+	sock_addr.sin_port = htons(nPort);
 	if (sock_addr.sin_addr.s_addr == INADDR_NONE) {
 		AfxMessageBox(_T("IP地址不存在！"));
 		return false;

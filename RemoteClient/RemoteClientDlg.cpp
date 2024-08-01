@@ -53,6 +53,8 @@ END_MESSAGE_MAP()
 
 CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLIENT_DIALOG, pParent)
+	, m_ipaddress_server(0)
+	, m_port_server(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -60,6 +62,9 @@ CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 void CRemoteClientDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_IPAddress(pDX, IDC_IPADDRESS_SERVER, m_ipaddress_server);
+	DDX_Text(pDX, IDC_PORT_SERVER, m_port_server);
+	DDX_Control(pDX, IDC_TREE_DIR, m_tree_dir);
 }
 
 BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
@@ -67,6 +72,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON_CONNECT, &CRemoteClientDlg::OnBnClickedButtonConnect)
+	ON_BN_CLICKED(IDC_BUTTON_FILEINFO, &CRemoteClientDlg::OnBnClickedButtonFileinfo)
 END_MESSAGE_MAP()
 
 
@@ -102,7 +108,11 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-
+	//初始化ip和port，显示到mfc上
+	UpdateData();
+	m_ipaddress_server = 0x7F000001;
+	m_port_server = "9527";
+	UpdateData(FALSE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -155,20 +165,54 @@ HCURSOR CRemoteClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+int CRemoteClientDlg::sendCommandPacket(int sCmd, BYTE* pData, size_t nSize) {
+	UpdateData();
+	CClientSocket* pClient = CClientSocket::getInstance();
+	if (!pClient->initSockEnv(m_ipaddress_server, _ttoi(m_port_server))) {
+		AfxMessageBox(_T("连接失败！"));
+		return -1;
+	}
+	CPacket pack(sCmd, pData, nSize);
+	pClient->dealSend(pack.data(), pack.size());
+
+	int ret = pClient->dealRecv();
+	pack = pClient->getCPacket();
+	//AfxMessageBox(pack.strData.c_str());
+	TRACE(_T("ack data: %s\r\n"), pack.strData.c_str());
+	pClient->closeClient();
+	return ret;
+}
+
 
 void CRemoteClientDlg::OnBnClickedButtonConnect()
 {
-	CClientSocket* pSock = CClientSocket::getInstance();
-	if (!pSock->initSockEnv("127.0.0.1")) {
-		AfxMessageBox(_T("连接失败！"));
-		return;
-	}
 	WORD sCmd = static_cast<WORD>(CProtocol::event::DISK_DRVIE_INFO);
-	CPacket pack(sCmd,NULL,0);
-	pSock->dealSend(pack.data(), pack.size());
+	sendCommandPacket(sCmd);
+}
+
+
+void CRemoteClientDlg::OnBnClickedButtonFileinfo()
+{
+	//获取文件树
+	//获取磁盘驱动CPacket
+	WORD sCmd = static_cast<WORD>(CProtocol::event::DISK_DRVIE_INFO);
+	sendCommandPacket(sCmd);
+	CClientSocket* pClient = CClientSocket::getInstance();
+	std::string strDrivers = pClient->getCPacket().strData;
+	//遍历结果，添加到 m_tree_dir
+	std::string dr;
+	m_tree_dir.DeleteAllItems();
+	for (int i = 0; i < strDrivers.size(); i++) {
+		if (strDrivers[i] == ',') {
+			dr += ':';
+			m_tree_dir.InsertItem(dr.c_str(),TVI_ROOT,TVI_LAST);
+			dr.clear();
+			continue;
+		}
+		dr += strDrivers[i];
+	}
+	dr += ':';
+	m_tree_dir.InsertItem(dr.c_str());
+
 	
-	pSock->dealRecv();
-	pack = pSock->getCPacket();
-	AfxMessageBox(pack.strData.c_str());
-	pSock->closeClient();
 }

@@ -31,6 +31,12 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+
+	int sendCommandPacket(int sCmd, BYTE* pData = NULL, size_t nSize = 0);
 public:
 	afx_msg void OnBnClickedButtonConnect();
+	DWORD m_ipaddress_server;
+	CString m_port_server;
+	afx_msg void OnBnClickedButtonFileinfo();
+	CTreeCtrl m_tree_dir;
 };
