@@ -36,9 +36,6 @@ int CFileInfo::getDirectoryInfo() {
         //切换路径失败
         FILEINFO finfo;
         finfo.hasNext = false;
-        finfo.isInvalid = true;
-        finfo.isDirectory = true;
-        memcpy(finfo.filename, filePath.c_str(), filePath.size());
         //发送文件
         CPacket packet(sCmd, (BYTE*)&finfo, sizeof(finfo));
         //packet.showPacket();
@@ -49,16 +46,22 @@ int CFileInfo::getDirectoryInfo() {
     }
     _finddata_t fdata;
     int hfind=0;
-    if ((hfind = _findfirst("*.*", &fdata)) == -1) {
+    if ((hfind = _findfirst("*", &fdata)) == -1) {
         //查找文件失败
         OutputDebugString(_T("没有找到文件！"));
+        FILEINFO finfo;
+        finfo.hasNext = false;
+        //发送文件
+        CPacket packet(sCmd, (BYTE*)&finfo, sizeof(finfo));
+        CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         return -3;
     }
     do {
         FILEINFO finfo;
         memcpy(finfo.filename, fdata.name, strlen(fdata.name));
-        finfo.isDirectory = (fdata.attrib & _A_SUBDIR) == 1;
+        finfo.isDirectory = (fdata.attrib & _A_SUBDIR) !=0;
         //发送文件
+        TRACE(_T("send finfo filename = [%s]\r\n"), CString(finfo.filename));
         CPacket packet(sCmd, (BYTE*)&finfo, sizeof(finfo));
         //packet.showPacket();
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());

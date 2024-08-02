@@ -32,11 +32,20 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 
-	int sendCommandPacket(int sCmd, BYTE* pData = NULL, size_t nSize = 0);
 public:
 	afx_msg void OnBnClickedButtonConnect();
 	DWORD m_ipaddress_server;
 	CString m_port_server;
 	afx_msg void OnBnClickedButtonFileinfo();
 	CTreeCtrl m_tree_dir;
+	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+
+private:
+	int sendCommandPacket(int sCmd, BOOL isAutoClose = TRUE, BYTE* pData = NULL, size_t nSize = 0);
+	CString getTreePath(HTREEITEM hItem);//获取树item的地址拼接结果
+	void deleteTreeChildrenItem(HTREEITEM hItem);//删除树的所有子item
+	void loadFileInfo();//加载文件树
+public:
+	CListCtrl m_list_file;
+	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
 };

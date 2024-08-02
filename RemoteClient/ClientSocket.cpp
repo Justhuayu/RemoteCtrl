@@ -55,16 +55,18 @@ int CClientSocket::dealRecv() {
 	if (!m_instance) return -1;
 	//定义缓冲区
 	char* buffer = m_buffer.data();
+	//char* buffer = new char[BUFFER_SIZE];
 	memset(buffer, 0, BUFFER_SIZE);
 	size_t index = 0;
 	while (1) {
+		//TODO: 粘包处理
 		size_t ret = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
 		if (ret < 0) {
 			return -1;
 		}
 		else if (ret == 0)//断开连接
 		{
-			return 1;
+			return -2;
 		}
 		//可能多次 recv，因此必须是 +=
 		index += ret;
@@ -75,6 +77,7 @@ int CClientSocket::dealRecv() {
 		//读取一个包，缓冲区消息删除
 		//memmove 移动数据，内存重合解决方法：不重合从前往后移动，重合时从后往前移动（i=n;dest[i - 1] = src[i - 1];i--）
 		memmove(buffer, buffer + ret, BUFFER_SIZE - ret);
+		//TRACE(_T("recv buffer remind : %s\r\n"), m_buffer.size());
 		index -= ret;
 		return m_packet.sCmd;
 	}
