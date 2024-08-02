@@ -48,4 +48,5 @@ private:
 public:
 	CListCtrl m_list_file;
 	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnDownFile();
 };

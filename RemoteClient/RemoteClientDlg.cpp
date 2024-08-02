@@ -76,6 +76,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_FILEINFO, &CRemoteClientDlg::OnBnClickedButtonFileinfo)
 	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemoteClientDlg::OnNMDblclkTreeDir)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemoteClientDlg::OnNMRClickListFile)
+	ON_COMMAND(ID_DOWN_FILE, &CRemoteClientDlg::OnDownFile)
 END_MESSAGE_MAP()
 
 
@@ -223,8 +224,7 @@ CString CRemoteClientDlg::getTreePath(HTREEITEM hItem) {
 	CString strRes, strTmp;
 	while(hItem != NULL){
 		strTmp = m_tree_dir.GetItemText(hItem);
-		if (strRes.IsEmpty()) strRes = strTmp;
-		else strRes = strTmp + "\\" + strRes;
+		strRes = strTmp + '\\' + strRes;
 		hItem = m_tree_dir.GetParentItem(hItem);
 	}
 	return strRes;
@@ -255,6 +255,7 @@ void CRemoteClientDlg::loadFileInfo() {
 	WORD sCmd = static_cast<WORD>(CProtocol::event::DIR_INFO);
 	int sRetCmd = sendCommandPacket(sCmd, false, reinterpret_cast<BYTE*>(strCurPath.GetBuffer()), strCurPath.GetLength());
 	PFILEINFO pfInfo = (PFILEINFO)pClient->getCPacket().strData.c_str();
+	WORD nCount = 0;
 	while (pfInfo->hasNext) {
 		//不处理 . 和 ..
 		if (pfInfo->isDirectory) {
@@ -268,12 +269,11 @@ void CRemoteClientDlg::loadFileInfo() {
 			//添加item
 			HTREEITEM hTemp = m_tree_dir.InsertItem(pfInfo->filename, hTreeSelected, TVI_LAST);
 			m_tree_dir.InsertItem("", hTemp, TVI_LAST);
-		}
-		else {
+		}else {
 			m_list_file.InsertItem(0, pfInfo->filename);
 		}
 
-		TRACE(_T("recv finfo filename = [%s]\r\n"), CString(pfInfo->filename));
+		TRACE(_T("recv finfo filename %d = [%s]\r\n"), nCount++,CString(pfInfo->filename));
 		//继续接受
 		sRetCmd = pClient->dealRecv();
 		if (sRetCmd < 0) break;
@@ -308,4 +308,52 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 		//弹出菜单
 		pPupup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, ptMouse.x, ptMouse.y, this);
 	}
+}
+
+
+void CRemoteClientDlg::OnDownFile()
+{
+	//1. 获取文件路径
+	int selectedList = m_list_file.GetSelectionMark();
+	CString filePath = m_list_file.GetItemText(selectedList,0);
+	HTREEITEM hTmp = m_tree_dir.GetSelectedItem();
+	filePath = getTreePath(hTmp) + filePath;
+	TRACE(_T("filepath: %s\r\n"), filePath);
+	//2. 设置保存路径
+	CFileDialog fDlg(FALSE,"*",
+		m_list_file.GetItemText(selectedList, 0),
+		OFN_HIDEREADONLY|OFN_OVERWRITEPROMPT,NULL,this);
+	if (fDlg.DoModal() != IDOK) {
+		TRACE(_T("打开文件对话框失败！"));
+		return;
+	}
+	//3. 创建文件
+	FILE* file;
+	errno_t err = fopen_s(&file,fDlg.GetPathName(), "wb+");
+	if (err != 0 || !file) {
+		TRACE(_T("新建文件失败！！"));
+		return;
+	}
+	//4. 接收文件数据
+	WORD sCmd = static_cast<WORD>(CProtocol::event::DOWN_FILE);
+	CClientSocket* pClient = CClientSocket::getInstance();
+	int ret = sendCommandPacket(sCmd,false, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
+	if (ret < 0) {
+		TRACE(_T("接收文件头失败！！"));
+		return;
+	}
+	long long nHead = *(long long*)pClient->getCPacket().strData.c_str();
+	long long nCount = 0;
+	while (nCount < nHead) {
+		ret = pClient->dealRecv();
+		if (ret < 0) {
+			TRACE(_T("传输数据失败!!"));
+			return;
+		}
+		//TODO:大文件接收
+		fwrite(pClient->getCPacket().strData.c_str(),1, pClient->getCPacket().strData.size(), file);
+		nCount += pClient->getCPacket().strData.size();
+	}
+	fclose(file);
+	pClient->closeClient();
 }

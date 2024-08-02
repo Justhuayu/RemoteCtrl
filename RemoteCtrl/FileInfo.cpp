@@ -128,7 +128,7 @@ int CFileInfo::downloadFile() {
     fseek(file, 0, SEEK_SET);
  
     //发送数据头
-    CPacket head(sCmd, (BYTE*)dataLen, 8);
+    CPacket head(sCmd, (BYTE*)&dataLen, 8);
     CServerSocket::getInstance()->dealSend(head.data(), head.size());
     char buffer[1024] = "";
     size_t ret = 0;

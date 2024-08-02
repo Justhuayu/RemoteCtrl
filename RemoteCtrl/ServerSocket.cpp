@@ -45,6 +45,7 @@ int CServerSocket::dealRecv() {
 	if (m_client_sock == INVALID_SOCKET) return -1;
 	//定义缓冲区
 	char* buffer = new char[BUFFER_SIZE];
+	memset(buffer, 0,sizeof(buffer));
 	if (buffer == NULL) {
 		TRACE(_T("buffer 内存不足！"));
 		return -2;
