@@ -84,7 +84,7 @@ int CServerSocket::dealRecv() {
 int CServerSocket::dealSend(const char* pData,int nSize) {
 	if (!m_instance) return -1;
 	if (m_client_sock == INVALID_SOCKET) return -1;
-	TRACE(_T("server ready send!!\r\n"));
+	//TRACE(_T("server ready send!!\r\n"));
 	return send(m_client_sock, pData, nSize, 0) > 0;
 }
 

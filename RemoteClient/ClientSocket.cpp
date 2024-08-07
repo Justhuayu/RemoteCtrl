@@ -69,7 +69,8 @@ int CClientSocket::dealRecv() {
 		index += ret;
 		ret = index;
 		m_packet = CPacket((BYTE*)buffer, ret);
-		//包不完整，循环重复读取
+		TRACE(_T("[INFO]RUN dealRecv() : %d\r\n"),ret);
+		//包不完整，循环重复读取x
 		if (ret == 0) continue;
 		//读取一个包，缓冲区消息删除
 		//memmove 移动数据，内存重合解决方法：不重合从前往后移动，重合时从后往前移动（i=n;dest[i - 1] = src[i - 1];i--）
@@ -78,7 +79,7 @@ int CClientSocket::dealRecv() {
 		index -= ret;
 		return m_packet.sCmd;
 	}
-	return 0;
+	return -1;
 }
 
 //处理发送

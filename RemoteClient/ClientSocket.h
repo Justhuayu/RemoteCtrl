@@ -25,16 +25,16 @@ public:
 		return *this;
 	}
 	//移动 = 
-	CPacket& operator=(CPacket&& p) noexcept {
+	/*CPacket& operator=(CPacket&& p) noexcept {
 		if (this != &p) {
-			// 移动资源
+			 移动资源
 			sHead = std::move(p.sHead);
 			nLength = std::move(p.nLength);
 			sCmd = std::move(p.sCmd);
 			strData = std::move(p.strData);
 			sSum = std::move(p.sSum);
 
-			// 清理源对象
+			 清理源对象
 			p.sHead = 0;
 			p.nLength = 0;
 			p.sCmd = 0;
@@ -43,7 +43,7 @@ public:
 		}
 
 		return *this;
-	}
+	}*/
 	//拷贝构造
 	CPacket(CPacket& p)
 	{
@@ -109,8 +109,8 @@ private:
 	}
 
 	CClientSocket() {
-
 		m_buffer.resize(BUFFER_SIZE);
+		memset((char*)m_buffer.data(), 0, sizeof(m_buffer.data()));
 	}
 	~CClientSocket() {
 		if (m_sock != INVALID_SOCKET) {

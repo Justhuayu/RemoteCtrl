@@ -79,6 +79,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWN_FILE, &CRemoteClientDlg::OnDownFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
+	ON_MESSAGE(WM_SEND_PACKET,&CRemoteClientDlg::WMSendPacket)
 END_MESSAGE_MAP()
 
 
@@ -135,6 +136,10 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	UpdateData();
 	m_ipaddress_server = 0x7F000001;
 	m_port_server = "9527";
+	//创建正在下载提示框
+	m_downInfoDlg.Create(IDD_DLG_DOWNINFO, this);
+	m_downInfoDlg.m_info.SetWindowText(_T("正在下载文件......"));
+	m_downInfoDlg.ShowWindow(SW_HIDE);
 	UpdateData(FALSE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -310,7 +315,7 @@ void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
-	// TODO: 在此添加控件通知处理程序代码
+	//右键菜单
 	*pResult = 0;
 	//获取当前选中item
 	CPoint ptMouse,ptList;
@@ -330,58 +335,94 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 	}
 }
 
+void CRemoteClientDlg::threadEntryDownFile(void* arg) {
+	CRemoteClientDlg* dlg = (CRemoteClientDlg*)arg;
+	dlg->threadDownFile();
+	_endthread();
+}
 
-void CRemoteClientDlg::OnDownFile()
-{
+void CRemoteClientDlg::threadDownFile() {
+	//下载文件
 	//1. 获取文件路径
 	int selectedList = m_list_file.GetSelectionMark();
-	CString filePath = m_list_file.GetItemText(selectedList,0);
+	CString filePath = m_list_file.GetItemText(selectedList, 0);
 	HTREEITEM hTmp = m_tree_dir.GetSelectedItem();
 	filePath = getTreePath(hTmp) + filePath;
 	TRACE(_T("filepath: %s\r\n"), filePath);
 	//2. 设置保存路径
-	CFileDialog fDlg(FALSE,"*",
+	CFileDialog fDlg(FALSE, "*",
 		m_list_file.GetItemText(selectedList, 0),
-		OFN_HIDEREADONLY|OFN_OVERWRITEPROMPT,NULL,this);
+		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, this);
 	if (fDlg.DoModal() != IDOK) {
 		TRACE(_T("打开文件对话框失败！"));
+		m_downInfoDlg.ShowWindow(SW_HIDE);
+		EndWaitCursor();
 		return;
 	}
 	//3. 创建文件
 	FILE* file;
-	errno_t err = fopen_s(&file,fDlg.GetPathName(), "wb+");
+	errno_t err = fopen_s(&file, fDlg.GetPathName(), "wb+");
 	if (err != 0 || !file) {
 		TRACE(_T("新建文件失败！！"));
+		m_downInfoDlg.ShowWindow(SW_HIDE);
+		EndWaitCursor();
 		return;
 	}
 	//4. 接收文件数据
 	WORD sCmd = static_cast<WORD>(CProtocol::event::DOWN_FILE);
 	CClientSocket* pClient = CClientSocket::getInstance();
-	int ret = sendCommandPacket(sCmd,false, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
+	//int ret = sendCommandPacket(sCmd, false, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
+	int ret = SendMessage(WM_SEND_PACKET, sCmd << 1 | 0, (LPARAM)(LPCSTR)filePath);
 	if (ret < 0) {
 		TRACE(_T("接收文件头失败！！"));
+		m_downInfoDlg.ShowWindow(SW_HIDE);
+		EndWaitCursor();
 		return;
 	}
 	long long nHead = *(long long*)pClient->getCPacket().strData.c_str();
 	long long nCount = 0;
 	while (nCount < nHead) {
+		//接收数据，消耗大量时间
 		ret = pClient->dealRecv();
 		if (ret < 0) {
 			TRACE(_T("传输数据失败!!"));
-			return;
+			//m_downInfoDlg.ShowWindow(SW_HIDE);
+			//EndWaitCursor();
+			break;
 		}
 		//TODO:大文件接收
-		fwrite(pClient->getCPacket().strData.c_str(),1, pClient->getCPacket().strData.size(), file);
+		fwrite(pClient->getCPacket().strData.c_str(), 1, pClient->getCPacket().strData.size(), file);
 		nCount += pClient->getCPacket().strData.size();
+		TRACE(_T("####recv file size: %d\r\n"), nCount);
+	}
+	if (nCount != nHead) {
+		TRACE(_T("文件接收不完整，期望大小：%d，实际大小：%d\n"), nHead, nCount);
 	}
 	fclose(file);
 	pClient->closeClient();
+	m_downInfoDlg.ShowWindow(SW_HIDE);
+	MessageBox(_T("文件下载完毕!"), _T("提示"), MB_OK);
 }
-
+void CRemoteClientDlg::OnDownFile()
+{
+	_beginthread(threadEntryDownFile, 0, this);
+	//等待50ms，让子线程的update获取数据能够准确的获取，防止多线程冲突(锁)
+	Sleep(50);
+	m_downInfoDlg.ShowWindow(SW_SHOW);
+	BeginWaitCursor();
+	m_downInfoDlg.SetActiveWindow();
+	m_downInfoDlg.CenterWindow(this);
+}
+LRESULT CRemoteClientDlg::WMSendPacket(WPARAM wParam, LPARAM lParam) 
+{
+	CString filePath = (LPCSTR)lParam;
+	int ret = sendCommandPacket(wParam>>1, wParam&1, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
+	return ret;
+}
 
 void CRemoteClientDlg::OnRunFile()
 {
-	// TODO: 在此添加命令处理程序代码
+	// 运行文件
 	int selectedIndex = m_list_file.GetSelectionMark();
 	CString strFilePath = m_list_file.GetItemText(selectedIndex, 0);
 	strFilePath = getTreePath(m_tree_dir.GetSelectedItem()) + strFilePath;
@@ -397,7 +438,6 @@ void CRemoteClientDlg::OnRunFile()
 
 void CRemoteClientDlg::OnDeleteFile()
 {
-	// TODO: 在此添加命令处理程序代码
 	//删除文件
 	//1.获取文件路径
 	int selectedIndex = m_list_file.GetSelectionMark();

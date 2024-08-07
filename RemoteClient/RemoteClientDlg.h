@@ -3,8 +3,9 @@
 //
 
 #pragma once
+#include "StatusDownInfo.h"
 
-
+#define WM_SEND_PACKET (WM_USER+1)
 // CRemoteClientDlg 对话框
 class CRemoteClientDlg : public CDialogEx
 {
@@ -47,10 +48,15 @@ private:
 	CString getTreePath(HTREEITEM hItem);//获取树item的地址拼接结果
 	void deleteTreeChildrenItem(HTREEITEM hItem);//删除树的所有子item
 	void loadFileInfo();//加载文件树
+	
 public:
 	CListCtrl m_list_file;
+	CStatusDownInfo m_downInfoDlg;//下载中提示框
+	static void threadEntryDownFile(void* arg);//多线程下载文件
+	void threadDownFile();//下载文件
 	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDownFile();
 	afx_msg void OnRunFile();
 	afx_msg void OnDeleteFile();
+	afx_msg LRESULT WMSendPacket(WPARAM wParam, LPARAM lParam);
 };

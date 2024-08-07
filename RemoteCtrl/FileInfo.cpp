@@ -133,25 +133,37 @@ int CFileInfo::downloadFile() {
     //发送数据头
     CPacket head(sCmd, (BYTE*)&dataLen, 8);
     CServerSocket::getInstance()->dealSend(head.data(), head.size());
-    char buffer[1024] = "";
+    char buffer[BUFFER_SIZE] = "";
     size_t ret = 0;
+    int count = 0;
     do {
         memset(buffer, 0, sizeof(buffer));
         ret = fread(buffer,1,sizeof(buffer),file);
-        if (ret <= 0) {
+        if (ret < 0) {
             // 处理读取错误
             OutputDebugString(_T("读取文件时出错！"));
             fclose(file);
             return -3;
         }
+        if (ret == 0) {
+            // 文件已读完
+            break;
+        }
         CPacket packet(sCmd, (BYTE*)buffer, ret);
-        CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+        int sendRet = CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+        if (sendRet < 0) {
+            TRACE(_T("数据发送失败！\n"));
+            break;
+        }
+        count += ret;
         //TODO: 发送失败
-    } while (ret >= 1024);
+        TRACE(_T("send file size ： %d ret: %d\r\n"), count,ret);
+    } while (ret > 0);
     //发送结束标志位
     CPacket end(sCmd, NULL, 0);
     CServerSocket::getInstance()->dealSend(end.data(), end.size());
     fclose(file);
+    TRACE(_T("send file size ： %d\r\n"), count);
     return 0;
 }
 
