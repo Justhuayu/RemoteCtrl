@@ -77,6 +77,8 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemoteClientDlg::OnNMDblclkTreeDir)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemoteClientDlg::OnNMRClickListFile)
 	ON_COMMAND(ID_DOWN_FILE, &CRemoteClientDlg::OnDownFile)
+	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
+	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 END_MESSAGE_MAP()
 
 
@@ -111,6 +113,23 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
+	//设置字体
+	// 获取系统默认字体
+	CFont* pFont = CFont::FromHandle((HFONT)GetStockObject(DEFAULT_GUI_FONT));
+
+	// 获取默认字体的 LOGFONT
+	LOGFONT lf;
+	pFont->GetLogFont(&lf);
+
+	// 设置字体为微软雅黑
+	_tcscpy_s(lf.lfFaceName, _T("Microsoft YaHei"));
+
+	// 创建新字体
+	m_font.CreateFontIndirect(&lf);
+
+	// 为控件设置新字体
+	m_list_file.SetFont(&m_font);
+	m_tree_dir.SetFont(&m_font);
 	// TODO: 在此添加额外的初始化代码
 	//初始化ip和port，显示到mfc上
 	UpdateData();
@@ -256,6 +275,7 @@ void CRemoteClientDlg::loadFileInfo() {
 	int sRetCmd = sendCommandPacket(sCmd, false, reinterpret_cast<BYTE*>(strCurPath.GetBuffer()), strCurPath.GetLength());
 	PFILEINFO pfInfo = (PFILEINFO)pClient->getCPacket().strData.c_str();
 	WORD nCount = 0;
+
 	while (pfInfo->hasNext) {
 		//不处理 . 和 ..
 		if (pfInfo->isDirectory) {
@@ -267,10 +287,10 @@ void CRemoteClientDlg::loadFileInfo() {
 				continue;
 			}
 			//添加item
-			HTREEITEM hTemp = m_tree_dir.InsertItem(pfInfo->filename, hTreeSelected, TVI_LAST);
+			HTREEITEM hTemp = m_tree_dir.InsertItem(CString(pfInfo->filename), hTreeSelected, TVI_LAST);
 			m_tree_dir.InsertItem("", hTemp, TVI_LAST);
 		}else {
-			m_list_file.InsertItem(0, pfInfo->filename);
+			m_list_file.InsertItem(0, CString(pfInfo->filename));
 		}
 
 		TRACE(_T("recv finfo filename %d = [%s]\r\n"), nCount++,CString(pfInfo->filename));
@@ -356,4 +376,42 @@ void CRemoteClientDlg::OnDownFile()
 	}
 	fclose(file);
 	pClient->closeClient();
+}
+
+
+void CRemoteClientDlg::OnRunFile()
+{
+	// TODO: 在此添加命令处理程序代码
+	int selectedIndex = m_list_file.GetSelectionMark();
+	CString strFilePath = m_list_file.GetItemText(selectedIndex, 0);
+	strFilePath = getTreePath(m_tree_dir.GetSelectedItem()) + strFilePath;
+	TRACE(_T("run file : %s\r\n"),strFilePath);
+	WORD sCmd = static_cast<WORD>(CProtocol::event::RUN_FILE);
+	int ret = sendCommandPacket(sCmd, true, (BYTE*)(LPCSTR)strFilePath, strFilePath.GetLength());
+	if (ret < 0) {
+		TRACE(_T("[ERROR]run file : %s\r\n"), strFilePath);
+	}
+	return;
+}
+
+
+void CRemoteClientDlg::OnDeleteFile()
+{
+	// TODO: 在此添加命令处理程序代码
+	//删除文件
+	//1.获取文件路径
+	int selectedIndex = m_list_file.GetSelectionMark();
+	CString strFilePath = m_list_file.GetItemText(selectedIndex,0);
+	strFilePath = getTreePath(m_tree_dir.GetSelectedItem()) + strFilePath;
+	TRACE(_T("delete file : %s\r\n"), strFilePath);
+	//2.发送请求删除文件
+	WORD sCmd = static_cast<WORD>(CProtocol::event::DELETE_FILE);
+	int ret = sendCommandPacket(sCmd, true, (BYTE*)(LPCSTR)strFilePath, strFilePath.GetLength());
+	if (ret < 0) {
+		TRACE(_T("[ERROR]delete file : %s\r\n"), strFilePath);
+	}
+	//3.刷新文件
+	//TODO:删除失败情况处理
+	m_list_file.DeleteItem(selectedIndex);
+	return;
 }

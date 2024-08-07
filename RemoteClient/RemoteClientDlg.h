@@ -38,6 +38,8 @@ public:
 	CString m_port_server;
 	afx_msg void OnBnClickedButtonFileinfo();
 	CTreeCtrl m_tree_dir;
+	CFont m_font;           // 字体成员变量
+
 	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
 
 private:
@@ -49,4 +51,6 @@ public:
 	CListCtrl m_list_file;
 	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDownFile();
+	afx_msg void OnRunFile();
+	afx_msg void OnDeleteFile();
 };

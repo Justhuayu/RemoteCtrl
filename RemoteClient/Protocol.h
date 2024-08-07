@@ -8,6 +8,7 @@ namespace CProtocol {
 		DIR_INFO,
 		RUN_FILE,
 		DOWN_FILE,
+		DELETE_FILE,
 		MOUSE_CTRL,
 		SCREEN_SEND,
 		LOCK_MACHINE,

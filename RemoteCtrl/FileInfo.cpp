@@ -96,7 +96,10 @@ int CFileInfo::runFile() {
     if ((int)result <= 32) {
         OutputDebugString(_T("Error: Failed to open file"));
     }
-
+    //TODO:返回运行失败和运行成功
+    WORD sCmd = static_cast<WORD>(CProtocol::event::RUN_FILE);
+    CPacket packet(sCmd, NULL, 0);
+    CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
     return 0;
 }
 
@@ -149,5 +152,24 @@ int CFileInfo::downloadFile() {
     CPacket end(sCmd, NULL, 0);
     CServerSocket::getInstance()->dealSend(end.data(), end.size());
     fclose(file);
+    return 0;
+}
+
+//删除本地文件
+int CFileInfo::deleteLocalFile() {
+    std::string filePath = "";
+    if (!CServerSocket::getInstance()->getFilePath(filePath)) {
+        //没有执行文件查找cmd
+        OutputDebugString(_T("当前命令，不是删除文件，命令解析失败！"));
+        return -1;
+    }
+    if (!DeleteFile(filePath.c_str())) {
+        OutputDebugString(_T("删除文件失败！"));
+        return -2;
+    }
+    //TODO:返回删除失败和删除成功
+    WORD sCmd = static_cast<WORD>(CProtocol::event::DELETE_FILE);
+    CPacket packet(sCmd, NULL,0);
+    CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
     return 0;
 }

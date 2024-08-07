@@ -94,7 +94,8 @@ bool CServerSocket::getFilePath(std::string& strPath) {
 	const std::set<CProtocol::event> validCommands = {
 		CProtocol::event::DIR_INFO,
 		CProtocol::event::RUN_FILE,
-		CProtocol::event::DOWN_FILE
+		CProtocol::event::DOWN_FILE,
+		CProtocol::event::DELETE_FILE,
 	};
 
 	// 检查 sCmd 是否在列表中

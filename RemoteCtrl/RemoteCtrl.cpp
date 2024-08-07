@@ -48,6 +48,9 @@ int executeCmd(const WORD sCmd) {
         //下载文件
         ret = fInfo.downloadFile();
         break;
+    case CProtocol::event::DELETE_FILE:
+        ret = fInfo.deleteLocalFile();
+        break;
     case CProtocol::event::MOUSE_CTRL:
         //鼠标操作
         ret = mCtrl.mouseEvent();
