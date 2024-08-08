@@ -195,7 +195,8 @@ int CMachineCtrl::screenSend() {
 		SIZE_T nCount = 0;
 		SIZE_T sendSize = 0;
 		while (nCount < nSize) {
-			sendSize = (nSize - nCount) < BUFFER_SIZE ? (nSize - nCount) : BUFFER_SIZE;
+			//考虑包标志位，实际内容大小应小于BUFFER_SIZE
+			sendSize = (nSize - nCount) < BUFFER_SIZE-50 ? (nSize - nCount) : BUFFER_SIZE-50;
 			CPacket packet(sCmd, pData+nCount, sendSize);
 			int sendRet = CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
 			if (sendRet < 0) {

@@ -492,13 +492,25 @@ void CRemoteClientDlg::threadWatch()
 		pClient = CClientSocket::getInstance();
 	} while (!pClient);
 	WORD sCmd = static_cast<WORD>(CProtocol::event::SCREEN_SEND);
-	//ULONGLONG tick = GetTickCount64();
-	while (1) {
+
+	//使用流来缓存图片
+	IStream* pStream = NULL;
+	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+	if (hMem == NULL) {
+		TRACE(_T("[ERROR]GlobalAlloc() failed，内存不足!"));
+		GlobalFree(hMem);
+		return;
+	}
+	HRESULT hRet = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+	if (hRet != S_OK) {
+		TRACE(_T("[ERROR]CreateStreamOnHGlobal() failed!"));
+		return;
+	}
+	while (hRet == S_OK) {
 		//if (GetTickCount64() - tick < 50) {
 		//	Sleep(static_cast<DWORD>(50 - (GetTickCount64() - tick)));
 		//}
 		//tick = GetTickCount64(); // 更新 tick
-
 		if (m_screenIsFull) {
 			//缓冲区图片没有处理
 			Sleep(1);
@@ -514,31 +526,21 @@ void CRemoteClientDlg::threadWatch()
 		//接收头
 		SIZE_T nSize = *(SIZE_T*)pClient->getCPacket().strData.c_str();
 		SIZE_T nCount = 0;
+		ULONG streamSize = 0;//实际往流里写的长度
 
-		//桌面图片保存到缓存中，方便主线程控件读取
-		IStream* pStream = NULL;
-		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
-		if (hMem == NULL) {
-			TRACE(_T("[ERROR]GlobalAlloc() failed，内存不足!"));
-			Sleep(1);
-			continue;
-		}
-		HRESULT ret = CreateStreamOnHGlobal(hMem,TRUE,&pStream);
-		if (ret != S_OK) {
-			TRACE(_T("[ERROR]CreateStreamOnHGlobal() failed!"));
-			Sleep(1);
-			continue;
-		}
-		/*if (ret == S_OK) {
-			ULONG length = 0;
-			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &length);
-			LARGE_INTEGER bg = { 0 };
-			pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+		// 清空并重置内存和流
+		ULARGE_INTEGER zeroSize;
+		zeroSize.QuadPart = 0;
+		pStream->SetSize(zeroSize); // 清空流内容
 
-			m_screenImage.Load(pStream);
-			m_screenIsFull = true;
-		}*/
-		ULONG streamSize=0;//实际往流里写的长度
+		LARGE_INTEGER zeroPos;
+		zeroPos.QuadPart = 0;
+		pStream->Seek(zeroPos, STREAM_SEEK_SET, NULL); // 重置流指针
+
+		LARGE_INTEGER zero = {};
+		pStream->Seek(zero, STREAM_SEEK_SET, NULL); // 重置流指针
+
+
 		while (nCount < nSize) {
 			recvRet = pClient->dealRecv();
 			if (recvRet < 0) {
@@ -548,21 +550,38 @@ void CRemoteClientDlg::threadWatch()
 			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
 			nCount += streamSize;
 		}
-		//缓冲区满了
-		m_screenIsFull = true;
+		if (ret == S_OK) {
+			ULONG length = 0;
+			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &length);
+			LARGE_INTEGER bg = { 0 };
+			pStream->Seek(bg, STREAM_SEEK_SET, NULL);
 
+			m_screenImage.Load(pStream);
+			m_screenIsFull = true;
+		}
+		//ULONG streamSize=0;//实际往流里写的长度
+		//while (nCount < nSize) {
+		//	recvRet = pClient->dealRecv();
+		//	if (recvRet < 0) {
+		//		TRACE(_T("[ERROR]recv screen data failed!"));
+		//		continue;
+		//	}
+		//	pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
+		//	nCount += streamSize;
+		//}
+		//缓冲区满了
+		/*m_screenIsFull = true;
 		LARGE_INTEGER bg = { 0 };
 		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
-		m_screenImage.Load(pStream);
+		m_screenImage.Load(pStream);*/
+		
 		//m_screenImage.Save(_T("C:/tt/screen1.png"), Gdiplus::ImageFormatPNG);
-		//TRACE(_T("recv screen data success!"));
-		//return;//实际不需要return，死循环接收
 
 		
 	}
 	// 释放流对象
-//	pStream->Release();
-	//GlobalFree(hMem);
+	pStream->Release();
+	GlobalFree(hMem);
 }
 void CRemoteClientDlg::OnBnClickedButtonWatch()
 {

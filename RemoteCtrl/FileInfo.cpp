@@ -133,7 +133,8 @@ int CFileInfo::downloadFile() {
     //发送数据头
     CPacket head(sCmd, (BYTE*)&dataLen, sizeof(dataLen));
     CServerSocket::getInstance()->dealSend(head.data(), head.size());
-    char buffer[BUFFER_SIZE] = "";
+    //考虑包标志位，实际内容大小应小于BUFFER_SIZE
+    char buffer[BUFFER_SIZE-50] = "";
     size_t ret = 0;
     int count = 0;
     do {
@@ -149,7 +150,7 @@ int CFileInfo::downloadFile() {
             break;
         }
         CPacket packet(sCmd, (BYTE*)buffer, ret);
-        packet.showPacket();
+        //packet.showPacket();
         int sendRet = CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         if (sendRet < 0) {
             TRACE(_T("数据发送失败！\n"));
