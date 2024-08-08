@@ -81,6 +81,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_MESSAGE(WM_SEND_PACKET,&CRemoteClientDlg::WMSendPacket)
 	ON_BN_CLICKED(IDC_BUTTON_WATCH, &CRemoteClientDlg::OnBnClickedButtonWatch)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -137,13 +138,13 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	UpdateData();
 	m_ipaddress_server = 0x7F000001;
 	m_port_server = "9527";
+	UpdateData(FALSE);
 	//创建正在下载提示框
 	m_downInfoDlg.Create(IDD_DLG_DOWNINFO, this);
 	m_downInfoDlg.m_info.SetWindowText(_T("正在下载文件......"));
 	m_downInfoDlg.ShowWindow(SW_HIDE);
 	//初始化screen CImage的缓充没满
 	m_screenIsFull = FALSE;
-	UpdateData(FALSE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -418,9 +419,26 @@ void CRemoteClientDlg::OnDownFile()
 }
 LRESULT CRemoteClientDlg::WMSendPacket(WPARAM wParam, LPARAM lParam) 
 {
-
-	CString filePath = (LPCSTR)lParam;
-	int ret = sendCommandPacket(wParam>>1, wParam&1, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
+	WORD sCmd = wParam >> 1;
+	int ret;
+	switch (static_cast<CProtocol::event>(sCmd)) {
+		case CProtocol::event::DOWN_FILE:
+		{
+			CString filePath = (LPCSTR)lParam;
+			ret = sendCommandPacket(sCmd, wParam & 1, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
+			break;
+		}
+		case CProtocol::event::SCREEN_SEND:
+		{
+			ret = sendCommandPacket(sCmd, wParam & 1,NULL,0);
+			break;
+		}
+		default:
+		{
+			ret = -1;
+			break;
+		}
+	}
 	return ret;
 }
 
@@ -474,7 +492,13 @@ void CRemoteClientDlg::threadWatch()
 		pClient = CClientSocket::getInstance();
 	} while (!pClient);
 	WORD sCmd = static_cast<WORD>(CProtocol::event::SCREEN_SEND);
+	//ULONGLONG tick = GetTickCount64();
 	while (1) {
+		//if (GetTickCount64() - tick < 50) {
+		//	Sleep(static_cast<DWORD>(50 - (GetTickCount64() - tick)));
+		//}
+		//tick = GetTickCount64(); // 更新 tick
+
 		if (m_screenIsFull) {
 			//缓冲区图片没有处理
 			Sleep(1);
@@ -488,38 +512,73 @@ void CRemoteClientDlg::threadWatch()
 			continue;
 		}
 		//接收头
-		SIZE_T nSize = *(SIZE_T*)pClient->getCPacket().strData.c_str();
-		SIZE_T nCount = 0;
+		//SIZE_T nSize = *(SIZE_T*)pClient->getCPacket().strData.c_str();
+		//SIZE_T nCount = 0;
+
 		//桌面图片保存到缓存中，方便主线程控件读取
 		IStream* pStream = NULL;
 		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+		if (hMem == NULL) {
+			TRACE(_T("[ERROR]GlobalAlloc() failed，内存不足!"));
+			Sleep(1);
+			continue;
+		}
 		HRESULT ret = CreateStreamOnHGlobal(hMem,TRUE,&pStream);
 		if (ret != S_OK) {
 			TRACE(_T("[ERROR]CreateStreamOnHGlobal() failed!"));
 			Sleep(1);
 			continue;
 		}
-		ULONG streamSize;//实际往流里写的长度
-		while (nCount < nSize) {
-			recvRet = pClient->dealRecv();
-			if (recvRet < 0) {
-				TRACE(_T("[ERROR]recv screen data failed!"));
-				continue;
-			}
-			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
-			nCount += streamSize;
+		if (ret == S_OK) {
+			ULONG length = 0;
+			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &length);
+			LARGE_INTEGER bg = { 0 };
+			pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+
+			m_screenImage.Load(pStream);
+			m_screenIsFull = true;
 		}
+		//ULONG streamSize=0;//实际往流里写的长度
+		//while (nCount < nSize) {
+		//	recvRet = pClient->dealRecv();
+		//	if (recvRet < 0) {
+		//		TRACE(_T("[ERROR]recv screen data failed!"));
+		//		continue;
+		//	}
+		//	pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
+		//	nCount += streamSize;
+		//}
 		//缓冲区满了
-		m_screenIsFull = true;
-		//m_screenImage.Load(pStream);
+		/*m_screenIsFull = true;
+		LARGE_INTEGER bg = { 0 };
+		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+		m_screenImage.Load(pStream);*/
+		
 		//m_screenImage.Save(_T("C:/tt/screen1.png"), Gdiplus::ImageFormatPNG);
-		TRACE(_T("recv screen data success!"));
-		return;//实际不需要return，死循环接收
+		//TRACE(_T("recv screen data success!"));
+		//return;//实际不需要return，死循环接收
+
+		
 	}
+	// 释放流对象
+//	pStream->Release();
+	//GlobalFree(hMem);
 }
 void CRemoteClientDlg::OnBnClickedButtonWatch()
 {
 	//远程监控
+	//显示屏幕监控
+	CScreenWatch dlg(this);
+	//子线程获取屏幕
 	_beginthread(CRemoteClientDlg::threadEntryWatch,0,this);
 
+	dlg.DoModal();
+}
+
+
+void CRemoteClientDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	CDialogEx::OnTimer(nIDEvent);
 }

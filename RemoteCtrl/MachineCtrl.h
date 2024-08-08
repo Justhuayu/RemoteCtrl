@@ -2,7 +2,7 @@
 #include "LockDialog.h"
 //声明全局 CLockDialog变量
 extern CLockDialog dlg;
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2048000
 
 class CMachineCtrl
 {

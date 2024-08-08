@@ -4,7 +4,7 @@
 
 #pragma once
 #include "StatusDownInfo.h"
-
+#include "ScreenWatch.h"
 #define WM_SEND_PACKET (WM_USER+1)
 // CRemoteClientDlg 对话框
 class CRemoteClientDlg : public CDialogEx
@@ -40,8 +40,8 @@ public:
 	afx_msg void OnBnClickedButtonFileinfo();
 	CTreeCtrl m_tree_dir;
 	CFont m_font;           // 字体成员变量
-	CImage m_screenImage;
-	BOOL m_screenIsFull;
+	CImage m_screenImage;	// 屏幕数据缓存
+	BOOL m_screenIsFull;	//屏幕缓存区是否满
 	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
 
 private:
@@ -63,4 +63,5 @@ public:
 	afx_msg void OnDeleteFile();
 	afx_msg LRESULT WMSendPacket(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedButtonWatch();
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 };
