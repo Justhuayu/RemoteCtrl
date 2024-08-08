@@ -40,7 +40,8 @@ public:
 	afx_msg void OnBnClickedButtonFileinfo();
 	CTreeCtrl m_tree_dir;
 	CFont m_font;           // 字体成员变量
-
+	CImage m_screenImage;
+	BOOL m_screenIsFull;
 	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
 
 private:
@@ -54,9 +55,12 @@ public:
 	CStatusDownInfo m_downInfoDlg;//下载中提示框
 	static void threadEntryDownFile(void* arg);//多线程下载文件
 	void threadDownFile();//下载文件
+	static void threadEntryWatch(void* arg);//多线程监控
+	void threadWatch();//监控桌面
 	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDownFile();
 	afx_msg void OnRunFile();
 	afx_msg void OnDeleteFile();
 	afx_msg LRESULT WMSendPacket(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnBnClickedButtonWatch();
 };

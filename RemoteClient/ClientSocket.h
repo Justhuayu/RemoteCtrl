@@ -109,7 +109,7 @@ private:
 	}
 
 	CClientSocket() {
-		m_buffer.resize(BUFFER_SIZE);
+		m_buffer.resize(BUFFER_SIZE*2);
 		memset((char*)m_buffer.data(), 0, sizeof(m_buffer.data()));
 	}
 	~CClientSocket() {

@@ -50,6 +50,20 @@ BOOL CClientSocket::initSockEnv(int ipAddr,int nPort) {
 	return true;
 }
 
+#include <sstream>
+#include <iomanip>
+
+// 辅助函数：将缓冲区数据转换为16进制字符串
+std::string bufferToHexString(const char* buffer, size_t length) {
+	std::ostringstream oss;
+	oss << std::hex << std::setfill('0');
+	for (size_t i = 0; i < length; ++i) {
+		oss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(buffer[i])) << " ";
+	}
+	return oss.str();
+}
+
+
 //处理接收
 int CClientSocket::dealRecv() {
 	if (!m_instance) return -1;
@@ -69,9 +83,13 @@ int CClientSocket::dealRecv() {
 		index += ret;
 		ret = index;
 		m_packet = CPacket((BYTE*)buffer, ret);
-		TRACE(_T("[INFO]RUN dealRecv() : %d\r\n"),ret);
 		//包不完整，循环重复读取x
-		if (ret == 0) continue;
+		if (ret == 0)
+		{
+			TRACE(_T("[INFO]RUN dealRecv() : %d\r\n"), ret);
+			continue;
+		}
+
 		//读取一个包，缓冲区消息删除
 		//memmove 移动数据，内存重合解决方法：不重合从前往后移动，重合时从后往前移动（i=n;dest[i - 1] = src[i - 1];i--）
 		memmove(buffer, buffer + ret, index - ret);
@@ -105,7 +123,9 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 	}
 	size_t i = 0;
 	for (; i < nSize; i++) {
-		if (0xFEFF == *(WORD*)(pData + i)) {
+		//TODO: 大文件接收会出现2个feff，只处理后面一个
+		//if (0xFEFF == *(WORD*)(pData + i) && (0xFEFF != *(WORD*)(pData + i + 2))) {
+		if (0xFEFF == *(WORD*)(pData + i)){
 			//找到包头
 			sHead = *(WORD*)(pData + i);
 			i += 2;
@@ -143,7 +163,7 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 		return;
 	}
 	//nSize表示实际处理到了pData的哪个位置
-	nSize = i;
+	nSize = i+2;
 }
 
 //数据打包
@@ -183,7 +203,7 @@ void CPacket::showPacket() {
 	for (size_t i = 0; i < this->size(); i++) {
 		char buf[8] = "";
 		if (i > 0 && i % 16 == 0) res += "\n";
-		snprintf(buf, sizeof(buf), "%02X ", strData[i] & 0xFF);
+		snprintf(buf, sizeof(buf), "%02X ", this->data()[i] & 0xFF);
 		res += buf;
 	}
 	res += "\n";

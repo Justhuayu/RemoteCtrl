@@ -178,6 +178,7 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 CPacket::CPacket(WORD sCmd, BYTE* pData, size_t nSize) {
 	sHead = 0XFEFF;
 	nLength = 2 + 2 + nSize;
+	//TRACE(_T("打包数据：nSize： %d nLength：%d \r\n"), nSize, nLength);
 	this->sCmd = sCmd;
 	strData.resize(nSize);
 	memcpy((void*)strData.c_str(), pData, nSize);
@@ -185,6 +186,7 @@ CPacket::CPacket(WORD sCmd, BYTE* pData, size_t nSize) {
 	for (size_t i = 0; i < strData.size(); i++) {
 		sSum += BYTE(strData[i]) & 0xFF;
 	}
+
 }
 
 //求包长度(头 + 长度 + 命令 + 数据 + 校验和)
@@ -208,10 +210,10 @@ const char* CPacket::data() {
 //打印包内容
 void CPacket::showPacket() {
 	std::string res = "";
-	for (size_t i = 0; i < this->size(); i++) {
+	for (size_t i = 0; i < 10; i++) {
 		char buf[8] = "";
 		if (i > 0 && i % 16 == 0) res += "\n";
-		snprintf(buf, sizeof(buf), "%02X ", strData[i] & 0xFF);
+		snprintf(buf, sizeof(buf), "%02X ", this->data()[i] & 0xFF);
 		res += buf;
 	}
 	res += "\n";

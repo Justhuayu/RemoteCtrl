@@ -185,8 +185,24 @@ int CMachineCtrl::screenSend() {
 		PBYTE pData = (PBYTE)GlobalLock(hMem);
 		SIZE_T nSize = GlobalSize(hMem);
 		//根据全局内存，打包packet
-		CPacket packet(sCmd, pData, nSize);
+		//屏幕图片过大，需要循环发送包
+		//1.发送头
+		CPacket packet(sCmd, (BYTE*)&nSize, sizeof(nSize));
 		CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+		//2. 循环发送数据
+		SIZE_T nCount = 0;
+		SIZE_T sendSize = 0;
+		while (nCount < nSize) {
+			sendSize = (nSize - nCount) < BUFFER_SIZE ? (nSize - nCount) : BUFFER_SIZE;
+			CPacket packet(sCmd, pData+nCount, sendSize);
+			int sendRet = CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
+			if (sendRet < 0) {
+				TRACE(_T("[ERROR]send screen packet failed!"));
+				return -1;
+			}
+			nCount += sendSize;
+			packet.showPacket();
+		}
 		GlobalUnlock(hMem);
 	}
 	

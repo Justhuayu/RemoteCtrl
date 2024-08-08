@@ -80,6 +80,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_MESSAGE(WM_SEND_PACKET,&CRemoteClientDlg::WMSendPacket)
+	ON_BN_CLICKED(IDC_BUTTON_WATCH, &CRemoteClientDlg::OnBnClickedButtonWatch)
 END_MESSAGE_MAP()
 
 
@@ -140,6 +141,8 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	m_downInfoDlg.Create(IDD_DLG_DOWNINFO, this);
 	m_downInfoDlg.m_info.SetWindowText(_T("正在下载文件......"));
 	m_downInfoDlg.ShowWindow(SW_HIDE);
+	//初始化screen CImage的缓充没满
+	m_screenIsFull = FALSE;
 	UpdateData(FALSE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -393,7 +396,7 @@ void CRemoteClientDlg::threadDownFile() {
 		//TODO:大文件接收
 		fwrite(pClient->getCPacket().strData.c_str(), 1, pClient->getCPacket().strData.size(), file);
 		nCount += pClient->getCPacket().strData.size();
-		TRACE(_T("####recv file size: %d\r\n"), nCount);
+		//TRACE(_T("####recv file size: %d\r\n"), nCount);
 	}
 	if (nCount != nHead) {
 		TRACE(_T("文件接收不完整，期望大小：%d，实际大小：%d\n"), nHead, nCount);
@@ -415,6 +418,7 @@ void CRemoteClientDlg::OnDownFile()
 }
 LRESULT CRemoteClientDlg::WMSendPacket(WPARAM wParam, LPARAM lParam) 
 {
+
 	CString filePath = (LPCSTR)lParam;
 	int ret = sendCommandPacket(wParam>>1, wParam&1, (BYTE*)(LPCSTR)filePath, filePath.GetLength());
 	return ret;
@@ -454,4 +458,68 @@ void CRemoteClientDlg::OnDeleteFile()
 	//TODO:删除失败情况处理
 	m_list_file.DeleteItem(selectedIndex);
 	return;
+}
+
+//多线程监控
+void CRemoteClientDlg::threadEntryWatch(void* arg) {
+	CRemoteClientDlg* pDlg = (CRemoteClientDlg*)arg;
+	pDlg->threadWatch();
+	_endthread();
+}
+//监控桌面
+void CRemoteClientDlg::threadWatch() 
+{
+	CClientSocket* pClient = NULL;
+	do {
+		pClient = CClientSocket::getInstance();
+	} while (!pClient);
+	WORD sCmd = static_cast<WORD>(CProtocol::event::SCREEN_SEND);
+	while (1) {
+		if (m_screenIsFull) {
+			//缓冲区图片没有处理
+			Sleep(1);
+			continue;
+		}
+		//接收桌面图片
+		int recvRet = SendMessage(WM_SEND_PACKET, sCmd << 1 | 0, NULL);
+		if(recvRet < 0) {
+			TRACE(_T("[ERROR]recv screen request failed!"));
+			Sleep(1);
+			continue;
+		}
+		//接收头
+		SIZE_T nSize = *(SIZE_T*)pClient->getCPacket().strData.c_str();
+		SIZE_T nCount = 0;
+		//桌面图片保存到缓存中，方便主线程控件读取
+		IStream* pStream = NULL;
+		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+		HRESULT ret = CreateStreamOnHGlobal(hMem,TRUE,&pStream);
+		if (ret != S_OK) {
+			TRACE(_T("[ERROR]CreateStreamOnHGlobal() failed!"));
+			Sleep(1);
+			continue;
+		}
+		ULONG streamSize;//实际往流里写的长度
+		while (nCount < nSize) {
+			recvRet = pClient->dealRecv();
+			if (recvRet < 0) {
+				TRACE(_T("[ERROR]recv screen data failed!"));
+				continue;
+			}
+			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
+			nCount += streamSize;
+		}
+		//缓冲区满了
+		m_screenIsFull = true;
+		//m_screenImage.Load(pStream);
+		//m_screenImage.Save(_T("C:/tt/screen1.png"), Gdiplus::ImageFormatPNG);
+		TRACE(_T("recv screen data success!"));
+		return;//实际不需要return，死循环接收
+	}
+}
+void CRemoteClientDlg::OnBnClickedButtonWatch()
+{
+	//远程监控
+	_beginthread(CRemoteClientDlg::threadEntryWatch,0,this);
+
 }

@@ -119,7 +119,7 @@ int CFileInfo::downloadFile() {
     WORD sCmd = static_cast<WORD>(CProtocol::event::DOWN_FILE);
     if (err != 0 || !file) {
         //读取失败，回复空数据包
-        CPacket packet(sCmd,(BYTE*)&dataLen,8);
+        CPacket packet(sCmd,(BYTE*)&dataLen, sizeof(dataLen));
         CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         //TODO: 发送失败
         OutputDebugString(_T("打开文件失败！"));
@@ -131,7 +131,7 @@ int CFileInfo::downloadFile() {
     fseek(file, 0, SEEK_SET);
  
     //发送数据头
-    CPacket head(sCmd, (BYTE*)&dataLen, 8);
+    CPacket head(sCmd, (BYTE*)&dataLen, sizeof(dataLen));
     CServerSocket::getInstance()->dealSend(head.data(), head.size());
     char buffer[BUFFER_SIZE] = "";
     size_t ret = 0;
@@ -146,10 +146,10 @@ int CFileInfo::downloadFile() {
             return -3;
         }
         if (ret == 0) {
-            // 文件已读完
             break;
         }
         CPacket packet(sCmd, (BYTE*)buffer, ret);
+        packet.showPacket();
         int sendRet = CServerSocket::getInstance()->dealSend(packet.data(), packet.size());
         if (sendRet < 0) {
             TRACE(_T("数据发送失败！\n"));
@@ -157,13 +157,13 @@ int CFileInfo::downloadFile() {
         }
         count += ret;
         //TODO: 发送失败
-        TRACE(_T("send file size ： %d ret: %d\r\n"), count,ret);
+        //TRACE(_T("send file size ： %d ret: %d\r\n"), count,ret);
     } while (ret > 0);
     //发送结束标志位
-    CPacket end(sCmd, NULL, 0);
-    CServerSocket::getInstance()->dealSend(end.data(), end.size());
+    /*CPacket end(sCmd, NULL, 0);
+    CServerSocket::getInstance()->dealSend(end.data(), end.size());*/
     fclose(file);
-    TRACE(_T("send file size ： %d\r\n"), count);
+    //TRACE(_T("send file size ： %d\r\n"), count);
     return 0;
 }
 
