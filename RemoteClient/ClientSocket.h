@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #define PORT 9527 //服务端socket端口号
-#define BUFFER_SIZE 2048000 //recv buffer大小
+#define BUFFER_SIZE 1024 //recv buffer大小
 #pragma pack(push,1)//按1字节对齐
 class CPacket {
 public:
