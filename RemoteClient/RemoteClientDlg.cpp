@@ -507,10 +507,6 @@ void CRemoteClientDlg::threadWatch()
 		return;
 	}
 	while (hRet == S_OK) {
-		//if (GetTickCount64() - tick < 50) {
-		//	Sleep(static_cast<DWORD>(50 - (GetTickCount64() - tick)));
-		//}
-		//tick = GetTickCount64(); // 更新 tick
 		if (m_screenIsFull) {
 			//缓冲区图片没有处理
 			Sleep(1);
@@ -526,7 +522,6 @@ void CRemoteClientDlg::threadWatch()
 		//接收头
 		SIZE_T nSize = *(SIZE_T*)pClient->getCPacket().strData.c_str();
 		SIZE_T nCount = 0;
-		ULONG streamSize = 0;//实际往流里写的长度
 
 		// 清空并重置内存和流
 		ULARGE_INTEGER zeroSize;
@@ -539,8 +534,9 @@ void CRemoteClientDlg::threadWatch()
 
 		LARGE_INTEGER zero = {};
 		pStream->Seek(zero, STREAM_SEEK_SET, NULL); // 重置流指针
-
-
+		
+		//循环接收数据包
+		ULONG streamSize=0;//实际往流里写的长度
 		while (nCount < nSize) {
 			recvRet = pClient->dealRecv();
 			if (recvRet < 0) {
@@ -550,34 +546,14 @@ void CRemoteClientDlg::threadWatch()
 			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
 			nCount += streamSize;
 		}
-		if (ret == S_OK) {
-			ULONG length = 0;
-			pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &length);
-			LARGE_INTEGER bg = { 0 };
-			pStream->Seek(bg, STREAM_SEEK_SET, NULL);
-
-			m_screenImage.Load(pStream);
-			m_screenIsFull = true;
-		}
-		//ULONG streamSize=0;//实际往流里写的长度
-		//while (nCount < nSize) {
-		//	recvRet = pClient->dealRecv();
-		//	if (recvRet < 0) {
-		//		TRACE(_T("[ERROR]recv screen data failed!"));
-		//		continue;
-		//	}
-		//	pStream->Write(pClient->getCPacket().strData.c_str(), pClient->getCPacket().strData.size(), &streamSize);
-		//	nCount += streamSize;
-		//}
 		//缓冲区满了
-		/*m_screenIsFull = true;
 		LARGE_INTEGER bg = { 0 };
 		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
-		m_screenImage.Load(pStream);*/
-		
+		m_screenImage.Load(pStream);
+		m_screenIsFull = true;
+
 		//m_screenImage.Save(_T("C:/tt/screen1.png"), Gdiplus::ImageFormatPNG);
 
-		
 	}
 	// 释放流对象
 	pStream->Release();
